@@ -226,3 +226,9 @@ select.input{appearance:none;background-image:linear-gradient(45deg,transparent 
   *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
 }
 
+
+/* ---------- الشعار (صورة logo.jpeg مقصوصة وتذوب في الخلفية) ---------- */
+.logo-img{display:block;flex:none;background-repeat:no-repeat;mix-blend-mode:screen;-webkit-mask-image:linear-gradient(to right,transparent,#000 5%,#000 95%,transparent),linear-gradient(to bottom,transparent,#000 5%,#000 95%,transparent);-webkit-mask-composite:source-in;mask-image:linear-gradient(to right,transparent,#000 5%,#000 95%,transparent),linear-gradient(to bottom,transparent,#000 5%,#000 95%,transparent);mask-composite:intersect}
+.splash-logo{mix-blend-mode:screen}
+.header-in .logo-img{margin-inline-end:2px}
+.status-line{line-height:1.5}
