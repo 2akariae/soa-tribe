@@ -72,7 +72,12 @@ const FB = {
   },
 
   watchData(cb, err) {
-    return onSnapshot(DB_DOC, (s) => cb(s.exists() ? s.data() : {}), err);
+    // includeMetadataChanges + skip hasPendingWrites: l-app kat-applique l-tghyir dyalha qbl, o ma-nrj3ouch l-wra b snapshot qdim
+    // ila l3ab l-user b tapat sari3a (kan-yt7dr tap tanya w yb9a b data qdima). Snapshot dyal server (mn ba3d l-ack) kay-t-applique 3adi.
+    return onSnapshot(DB_DOC, { includeMetadataChanges: true }, (s) => {
+      if (s.metadata.hasPendingWrites) return;
+      cb(s.exists() ? s.data() : {});
+    }, err);
   },
   watchUsers(cb, err) {
     return onSnapshot(collection(fs, "users"), (s) => cb(s.docs.map((d) => ({ id: d.id, ...d.data() }))), err);
