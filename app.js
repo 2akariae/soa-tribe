@@ -267,62 +267,117 @@ function useDraft(src, key) {
 }
 function Splash({ onDone }) {
   const [stage, setStage] = useState(0);
-  const cv = useRef(null);
+  const back = useRef(null), front = useRef(null), mark = useRef(null);
   const reduce = useMemo(() => !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches), []);
   useEffect(() => {
-    const T = reduce ? [100, 500, 900, 1500] : [350, 1500, 3100, 4400];
-    const ids = [
-      setTimeout(() => setStage(1), T[0]),
-      setTimeout(() => setStage(2), T[1]),
-      setTimeout(() => setStage(3), T[2]),
-      setTimeout(onDone, T[3])
-    ];
+    const T = reduce ? [100, 400, 900, 1500] : [1500, 2700, 4100, 5200];
+    const ids = [setTimeout(() => setStage(1), T[0]), setTimeout(() => setStage(2), T[1]), setTimeout(() => setStage(3), T[2]), setTimeout(onDone, T[3])];
     return () => ids.forEach(clearTimeout);
   }, []);
   useEffect(() => {
     if (reduce) return;
-    const c = cv.current;
-    if (!c) return;
-    const ctx = c.getContext("2d");
-    let raf, W = 0, H = 0;
-    const resize = () => {
-      const r = window.devicePixelRatio || 1;
+    const cb = back.current, cf = front.current;
+    if (!cb || !cf) return;
+    const xb = cb.getContext("2d"), xf = cf.getContext("2d");
+    let raf, W = 0, H = 0, cy = 0, ground = 0, span = 0, R = 0, last = 0;
+    const r0 = 10, E = 1.2;
+    const ease = (x) => x < 0 ? 0 : x > 1 ? 1 : x * x * (3 - 2 * x);
+    const geom = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
       W = window.innerWidth;
       H = window.innerHeight;
-      c.width = W * r;
-      c.height = H * r;
-      ctx.setTransform(r, 0, 0, r, 0, 0);
-    };
-    resize();
-    window.addEventListener("resize", resize);
-    const P = Array.from({ length: 70 }, () => ({ x: Math.random() * W, y: Math.random() * H, r: Math.random() * 1.8 + 0.4, v: Math.random() * 0.6 + 0.2, a: Math.random() * 0.6 + 0.2, ph: Math.random() * 6.28 }));
-    const tick = () => {
-      ctx.clearRect(0, 0, W, H);
-      P.forEach((p) => {
-        p.y -= p.v;
-        p.ph += 0.02;
-        p.x += Math.sin(p.ph) * 0.3;
-        if (p.y < -5) {
-          p.y = H + 5;
-          p.x = Math.random() * W;
-        }
-        ctx.beginPath();
-        ctx.fillStyle = `rgba(212,175,55,${p.a})`;
-        ctx.shadowColor = "#d4af37";
-        ctx.shadowBlur = 8;
-        ctx.arc(p.x, p.y, p.r, 0, 6.283);
-        ctx.fill();
+      [cb, cf].forEach((c) => {
+        c.width = W * dpr;
+        c.height = H * dpr;
+        c.getContext("2d").setTransform(dpr, 0, 0, dpr, 0, 0);
       });
+      const m = mark.current, rect = m ? m.getBoundingClientRect() : null;
+      cy = rect ? rect.top + rect.height / 2 : H * 0.42;
+      const half = m ? m.offsetWidth / 2 : 90;
+      ground = H * 0.9;
+      span = ground - H * 0.06;
+      const yl = Math.min(0.8, Math.max(0.2, (ground - cy) / span));
+      R = Math.min(W * 0.65, r0 + (half * 1.4 + 10 - r0) / Math.pow(yl, E));
+    };
+    geom();
+    window.addEventListener("resize", geom);
+    const mk = (rgb) => {
+      const c = document.createElement("canvas");
+      c.width = c.height = 48;
+      const g = c.getContext("2d");
+      const gr = g.createRadialGradient(24, 24, 0, 24, 24, 24);
+      gr.addColorStop(0, `rgba(${rgb},1)`);
+      gr.addColorStop(0.25, `rgba(${rgb},0.55)`);
+      gr.addColorStop(1, `rgba(${rgb},0)`);
+      g.fillStyle = gr;
+      g.fillRect(0, 0, 48, 48);
+      return c;
+    };
+    const SPR = { gold: mk("232,188,66"), hot: mk("255,236,176") };
+    const N = 320;
+    const P = Array.from({ length: N }, (_, i) => ({
+      y: Math.random(),
+      th: Math.random() * 6.283,
+      w: 1.3 + Math.random() * 1.9,
+      up: 0.06 + Math.random() * 0.12,
+      s: (i < 50 ? 1.8 : 0.7) + Math.random() * 1.5,
+      a: 0.4 + Math.random() * 0.6,
+      jit: (Math.random() - 0.5) * 0.28,
+      spr: Math.random() < 0.22 ? "hot" : "gold"
+    }));
+    const t0 = performance.now();
+    last = t0;
+    const tick = (now) => {
+      const et = now - t0, dt = Math.min(0.05, (now - last) / 1e3);
+      last = now;
+      const build = ease(et / 1100), exit = ease((et - 3950) / 1050), vis = build * (1 - exit), rMul = 1 + exit * 1.9;
+      [xb, xf].forEach((x) => {
+        x.globalCompositeOperation = "destination-out";
+        x.fillStyle = "rgba(0,0,0,0.2)";
+        x.fillRect(0, 0, W, H);
+        x.globalCompositeOperation = "lighter";
+      });
+      const q = (et - 1450) / 950;
+      if (q > 0 && q < 1) {
+        xb.strokeStyle = `rgba(243,226,154,${0.55 * (1 - q) * (1 - q)})`;
+        xb.lineWidth = 2 + 5 * (1 - q);
+        xb.beginPath();
+        xb.arc(W / 2, cy, q * W * 0.8, 0, 6.283);
+        xb.stroke();
+      }
+      for (let i = 0; i < N; i++) {
+        const p = P[i];
+        p.y += p.up * dt * (1 + exit * 3);
+        if (p.y > 1) {
+          p.y -= 1;
+          p.th = Math.random() * 6.283;
+        }
+        p.th += p.w * dt * (1 + (1 - p.y) * 1.7);
+        const rr = (r0 + (R - r0) * Math.pow(p.y, E)) * (1 + p.jit) * rMul;
+        const sway = Math.sin(et / 1e3 * 1.4 + p.y * 3.2) * W * 0.05 * Math.pow(p.y, 1.4);
+        const z = Math.sin(p.th);
+        const x = W / 2 + sway + Math.cos(p.th) * rr;
+        const y = ground - p.y * span + z * rr * 0.16 - exit * p.y * 90;
+        const depth = 0.62 + 0.38 * (z + 1) / 2;
+        const edge = Math.min(1, p.y / 0.06, (1 - p.y) / 0.08);
+        const al = p.a * depth * vis * Math.max(0, edge);
+        if (al < 0.02) continue;
+        const c = z >= 0 ? xf : xb, sz = p.s * depth * 3.2;
+        c.globalAlpha = Math.min(1, al * 1.4);
+        c.drawImage(SPR[p.spr], x - sz, y - sz, sz * 2, sz * 2);
+      }
+      xb.globalAlpha = 1;
+      xf.globalAlpha = 1;
       raf = requestAnimationFrame(tick);
     };
-    tick();
+    raf = requestAnimationFrame(tick);
     return () => {
       cancelAnimationFrame(raf);
-      window.removeEventListener("resize", resize);
+      window.removeEventListener("resize", geom);
     };
   }, []);
   const cls = stage >= 3 ? "open" : stage === 2 ? "s2" : stage === 1 ? "s1" : "";
-  return /* @__PURE__ */ React.createElement("div", { className: `splash ${cls}`, "aria-label": "شاشة الدخول" }, /* @__PURE__ */ React.createElement("div", { className: "door door-l" }), /* @__PURE__ */ React.createElement("div", { className: "door door-r" }), /* @__PURE__ */ React.createElement("canvas", { ref: cv }), /* @__PURE__ */ React.createElement("div", { className: "splash-logo" }, /* @__PURE__ */ React.createElement("div", { className: "splash-glow" }), /* @__PURE__ */ React.createElement(Logo, { size: 250 }), /* @__PURE__ */ React.createElement("div", { className: "splash-word" }, /* @__PURE__ */ React.createElement("div", { className: "splash-soa gold-text", lang: "en" }, "SOA"), /* @__PURE__ */ React.createElement("div", { className: "splash-ar" }, "أبناء الفوضى"))), /* @__PURE__ */ React.createElement("button", { type: "button", className: "splash-skip", onClick: onDone }, "تخطي"));
+  return /* @__PURE__ */ React.createElement("div", { className: `splash ${cls}`, "aria-label": "شاشة الدخول" }, /* @__PURE__ */ React.createElement("div", { className: "splash-ground" }), /* @__PURE__ */ React.createElement("canvas", { ref: back, className: "sp-back" }), /* @__PURE__ */ React.createElement("div", { className: "splash-logo" }, /* @__PURE__ */ React.createElement("div", { className: "splash-glow" }), /* @__PURE__ */ React.createElement("div", { className: "splash-mark", ref: mark }, /* @__PURE__ */ React.createElement(Logo, { size: 210 })), /* @__PURE__ */ React.createElement("div", { className: "splash-word" }, /* @__PURE__ */ React.createElement("div", { className: "splash-soa gold-text", lang: "en" }, "SOA"), /* @__PURE__ */ React.createElement("div", { className: "splash-ar" }, "أبناء الفوضى"))), /* @__PURE__ */ React.createElement("canvas", { ref: front, className: "sp-front" }), /* @__PURE__ */ React.createElement("button", { type: "button", className: "splash-skip", onClick: onDone }, "تخطي"));
 }
 function AuthShell({ sub, children }) {
   return /* @__PURE__ */ React.createElement("div", { className: "login gutter" }, /* @__PURE__ */ React.createElement("div", { className: "col" }, /* @__PURE__ */ React.createElement("div", { className: "login-logo" }, /* @__PURE__ */ React.createElement(Logo, { size: 130 }), /* @__PURE__ */ React.createElement("div", { className: "disp gold-text", style: { fontSize: 30, fontWeight: 700, lineHeight: 1.2 } }, "أبناء الفوضى"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, sub)), children));
