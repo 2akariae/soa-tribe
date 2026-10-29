@@ -55,6 +55,11 @@ const ROLES = {
   mod: { label: "مشرف / نائب / شيخ", icon: "Shield" }
 };
 const RANKS = ["عضو", "مشرف", "نائب", "شيخ"];
+const LEADER_RANK = "رئيس";
+const RANK_ORDER = [LEADER_RANK, "شيخ", "نائب", "مشرف", "عضو"];
+const rankIdx = (r) => { const i = RANK_ORDER.indexOf(r); return i < 0 ? RANK_ORDER.length : i; };
+const ROLE_RANK = { leader: LEADER_RANK, chests: "نائب", activity: "نائب", stealing: "شيخ", recruit: "شيخ", mod: "مشرف" };
+const acctOf = (db, weid) => { const k = norm(weid).toLowerCase(); return k ? db.users.find((u) => norm(u.weid).toLowerCase() === k) : void 0; };
 const TIERS = {
   normal: { label: "عادي", sub: "ألعاب مصغّرة", icon: "Package" },
   advanced: { label: "متقدم", sub: "النشاط والدعم", icon: "Gift" },
@@ -258,18 +263,22 @@ function useDraft(src, key) {
   const dirty = Object.keys(d).filter((id) => d[id] !== base(id));
   return { d, val, set, dirty, reset: () => setD({}) };
 }
+// Splash cinematic: tornado -> collapse -> flash -> logo reveal -> wordmark -> open. Awqat b ms (7ewlha hna).
+const SPL = { storm: 150, collapse: 2400, reveal: 3300, word: 4200, open: 5600, done: 6900 };
 function Splash({ onDone }) {
-  const [stage, setStage] = useState(0);
+  const [phase, setPhase] = useState(0);
   const cv = useRef(null);
   const reduce = useMemo(() => !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches), []);
   useEffect(() => {
-    const T = reduce ? [100, 500, 900, 1500] : [300, 1400, 3500, 4900];
+    const T = reduce ? { storm: 50, collapse: 100, reveal: 200, word: 450, open: 1300, done: 1700 } : SPL;
     const unboot = () => document.documentElement.classList.remove("booting");
     const ids = [
-      setTimeout(() => setStage(1), T[0]),
-      setTimeout(() => setStage(2), T[1]),
-      setTimeout(() => { unboot(); setStage(3); }, T[2]),
-      setTimeout(() => { unboot(); onDone(); }, T[3])
+      setTimeout(() => setPhase(1), T.storm),
+      setTimeout(() => setPhase(2), T.collapse),
+      setTimeout(() => setPhase(3), T.reveal),
+      setTimeout(() => setPhase(4), T.word),
+      setTimeout(() => { unboot(); setPhase(5); }, T.open),
+      setTimeout(() => { unboot(); onDone(); }, T.done)
     ];
     return () => ids.forEach(clearTimeout);
   }, []);
@@ -278,67 +287,218 @@ function Splash({ onDone }) {
     const c = cv.current;
     if (!c) return;
     const ctx = c.getContext("2d");
-    let raf, W = 0, H = 0;
+    const t0 = performance.now();
+    let raf, W = 0, H = 0, dpr = 1, last = t0;
     const resize = () => {
-      const r = window.devicePixelRatio || 1;
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
       W = window.innerWidth;
       H = window.innerHeight;
-      c.width = W * r;
-      c.height = H * r;
-      ctx.setTransform(r, 0, 0, r, 0, 0);
+      c.width = Math.round(W * dpr);
+      c.height = Math.round(H * dpr);
     };
     resize();
     window.addEventListener("resize", resize);
-    const sprite = (col) => {
+    const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+    const sprite = (stops) => {
       const k = document.createElement("canvas");
-      k.width = k.height = 32;
-      const g = k.getContext("2d"), gr = g.createRadialGradient(16, 16, 0, 16, 16, 16);
-      gr.addColorStop(0, col + "1)");
-      gr.addColorStop(0.35, col + "0.45)");
-      gr.addColorStop(1, col + "0)");
+      k.width = k.height = 64;
+      const g = k.getContext("2d"), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      stops.forEach(([o, col]) => gr.addColorStop(o, col));
       g.fillStyle = gr;
-      g.fillRect(0, 0, 32, 32);
+      g.fillRect(0, 0, 64, 64);
       return k;
     };
-    const spr = [sprite("rgba(255,228,150,"), sprite("rgba(212,175,55,"), sprite("rgba(214,62,46,")];
-    const N = Math.max(46, Math.min(90, Math.round(W * H / 9000)));
-    const mkP = (anywhere) => ({
-      x: Math.random() * W, y: anywhere ? Math.random() * H : H + 10,
-      r: Math.random() * 5 + 2, v: Math.random() * 0.7 + 0.25, a: Math.random() * 0.55 + 0.35,
-      ph: Math.random() * 6.28, tw: Math.random() * 6.28, k: (() => { const q = Math.random(); return q < 0.3 ? 0 : q < 0.85 ? 1 : 2; })()
+    const S = {
+      dust: sprite([[0, "rgba(128,110,86,.6)"], [.5, "rgba(84,70,54,.28)"], [1, "rgba(60,50,40,0)"]]),
+      dark: sprite([[0, "rgba(16,13,10,.92)"], [.6, "rgba(16,13,10,.42)"], [1, "rgba(16,13,10,0)"]]),
+      gold: sprite([[0, "rgba(255,232,160,1)"], [.3, "rgba(212,175,55,.5)"], [1, "rgba(212,175,55,0)"]]),
+      red: sprite([[0, "rgba(255,126,84,1)"], [.3, "rgba(214,62,46,.5)"], [1, "rgba(214,62,46,0)"]])
+    };
+    const KINDS = ["dust", "dark", "gold", "red"];
+    const cloud = (() => {
+      const k = document.createElement("canvas");
+      k.width = k.height = 512;
+      const g = k.getContext("2d");
+      for (let i = 0; i < 46; i++) {
+        const a = Math.random() * 6.283, d = Math.random() * 210, x = 256 + Math.cos(a) * d, y = 256 + Math.sin(a) * d, r = 50 + Math.random() * 90, l = 38 + Math.random() * 34;
+        const gr = g.createRadialGradient(x, y, 0, x, y, r);
+        gr.addColorStop(0, `rgba(${l + 14},${l + 6},${l - 4},.34)`);
+        gr.addColorStop(1, `rgba(${l},${l - 4},${l - 12},0)`);
+        g.fillStyle = gr;
+        g.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+      g.globalCompositeOperation = "destination-in";
+      const m = g.createRadialGradient(256, 256, 0, 256, 256, 256);
+      m.addColorStop(0, "#000");
+      m.addColorStop(.7, "rgba(0,0,0,.8)");
+      m.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = m;
+      g.fillRect(0, 0, 512, 512);
+      return k;
+    })();
+    const N = Math.max(320, Math.min(620, Math.round(W * H / 750)));
+    const P = Array.from({ length: N }, () => {
+      const q = Math.random(), kind = q < .5 ? 0 : q < .7 ? 1 : q < .93 ? 2 : 3;
+      return {
+        t: Math.random(), th: Math.random() * 6.283, r0: .7 + Math.random() * .6, vy: .05 + Math.random() * .1, w: .75 + Math.random() * .5,
+        kind, sz: kind === 0 ? 34 + Math.random() * 46 : kind === 1 ? 26 + Math.random() * 30 : 5 + Math.random() * 8,
+        a0: kind === 0 ? .6 : kind === 1 ? .85 : .95, ba: Math.random() * 6.283, bs: 80 + Math.random() * 380,
+        x: 0, y: 0, a: 0, s: 0, f: false
+      };
     });
-    const P = Array.from({ length: N }, () => mkP(true));
-    const tick = () => {
-      ctx.clearRect(0, 0, W, H);
-      P.forEach((p, i) => {
-        p.y -= p.v;
-        p.ph += 0.018;
-        p.tw += 0.06;
-        p.x += Math.sin(p.ph) * 0.35;
-        if (p.y < -10) P[i] = mkP(false);
-        const fade = Math.min(1, Math.max(0, p.y / (H * 0.28))) * Math.min(1, Math.max(0, (H - p.y) / 70));
-        ctx.globalAlpha = p.a * (0.65 + 0.35 * Math.sin(p.tw)) * fade;
-        ctx.drawImage(spr[p.k], p.x - p.r, p.y - p.r, p.r * 2, p.r * 2);
-      });
-      ctx.globalAlpha = 1;
+    const AE = Array.from({ length: 34 }, () => ({ x: Math.random(), y: Math.random(), v: .25 + Math.random() * .6, ph: Math.random() * 6.283, r: 3 + Math.random() * 5 }));
+    const BT = [900, 1500, 2050];
+    let boltIdx = -1, bolt = null;
+    const mkBolt = (cx, baseY) => {
+      const sx = cx + (Math.random() - .5) * W * .6, ex = cx + (Math.random() - .5) * W * .35, ey = baseY * .85, n = 9, pts = [];
+      for (let i = 0; i <= n; i++) {
+        const t = i / n;
+        pts.push([sx + (ex - sx) * t + (i && i < n ? (Math.random() - .5) * W * .12 : 0), ey * t]);
+      }
+      const o = pts[4], br = [o];
+      for (let i = 1; i <= 4; i++) br.push([o[0] + i * (Math.random() - .3) * W * .06, o[1] + i * H * .05]);
+      return { pts, br };
+    };
+    const strokeBolt = (pts) => {
+      ctx.beginPath();
+      pts.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]));
+      ctx.stroke();
+    };
+    const tick = (now) => {
+      const e = now - t0, dt = Math.min(.034, (now - last) / 1000);
+      last = now;
+      const u = clamp(W / 390, .8, 1.6);
+      const baseY = H * .74, topY = H * .10, Hf = baseY - topY, cx = W / 2, ly = H / 2 - 58;
+      const Rmax = W * .46, Rmin = W * .022;
+      const g = 1 - Math.pow(1 - clamp((e - 200) / 1500), 3);
+      const cl = clamp((e - SPL.collapse) / (SPL.reveal - SPL.collapse)), c3 = cl * cl * cl;
+      const b = Math.max(0, (e - SPL.reveal) / 1000);
+      const jolt = e > SPL.reveal && e < SPL.reveal + 500 ? 12 * (1 - (e - SPL.reveal) / 500) : 0;
+      const sh = g * (1 - cl) * 1.4 + c3 * 5 + jolt;
+      ctx.setTransform(dpr, 0, 0, dpr, (Math.random() - .5) * 2 * sh * dpr, (Math.random() - .5) * 2 * sh * dpr);
+      ctx.clearRect(-30, -30, W + 60, H + 60);
+      let lit = 0;
+      for (let i = 0; i < BT.length; i++) {
+        const k = e - BT[i];
+        if (k >= 0 && k < 230) {
+          if (boltIdx !== i) { boltIdx = i; bolt = mkBolt(cx, baseY); }
+          if (k < 70 || k > 100 && k < 200) lit = 1;
+        }
+      }
+      if (lit) { ctx.fillStyle = "rgba(170,190,255,.14)"; ctx.fillRect(0, 0, W, H); }
+      const cloudFade = b > 0 ? Math.max(0, 1 - b / 1.2) : 1;
+      if (g > 0 && cloudFade > 0) {
+        const sz = W * 2.2;
+        ctx.save();
+        ctx.translate(cx, topY + H * .03);
+        ctx.scale(1, .42);
+        ctx.globalAlpha = (.75 * g * (1 - c3 * .8) + lit * .2) * cloudFade;
+        ctx.rotate(e * .00014);
+        ctx.drawImage(cloud, -sz / 2, -sz / 2, sz, sz);
+        ctx.rotate(-e * .00014 * 2.6);
+        ctx.globalAlpha *= .8;
+        ctx.drawImage(cloud, -sz * .4, -sz * .4, sz * .8, sz * .8);
+        ctx.restore();
+        ctx.globalAlpha = 1;
+      }
+      if (lit && bolt) {
+        ctx.lineJoin = "round";
+        [[8, "rgba(150,180,255,.12)"], [3.5, "rgba(190,210,255,.38)"], [1.4, "rgba(255,255,255,.95)"]].forEach(([w, col]) => {
+          ctx.lineWidth = w; ctx.strokeStyle = col; strokeBolt(bolt.pts); strokeBolt(bolt.br);
+        });
+      }
+      if (g > 0 && b < 1) {
+        const bg = ctx.createRadialGradient(cx, baseY, 0, cx, baseY, W * .5);
+        bg.addColorStop(0, "rgba(130,104,64,.38)");
+        bg.addColorStop(1, "rgba(130,104,64,0)");
+        ctx.save();
+        ctx.translate(0, baseY);
+        ctx.scale(1, .18);
+        ctx.translate(0, -baseY);
+        ctx.globalAlpha = g * (1 - c3);
+        ctx.fillStyle = bg;
+        ctx.fillRect(cx - W * .5, baseY - W * .5, W, W);
+        ctx.restore();
+        ctx.globalAlpha = 1;
+      }
+      if (b < 1.5) {
+        for (const p of P) {
+          p.t += p.vy * dt * (1 + cl * 3);
+          if (p.t > 1) p.t -= 1;
+          const t = p.t, R0 = (Rmin + (Rmax - Rmin) * Math.pow(t, 1.7)) * p.r0;
+          p.th += 5.2 * p.w / (.22 + R0 / Rmax) * dt * (1 + cl * 2.5);
+          const R = R0 * (1 - c3 * .96), sn = Math.sin(p.th), front = (sn + 1) / 2;
+          let x = cx + Math.sin(e * .0011 + t * 3.2) * W * .045 * t * (1 - cl) + Math.cos(p.th) * R;
+          let y = baseY - t * Hf * g + sn * R * .2;
+          if (cl > 0) { x += (cx - x) * c3; y += (ly - y) * c3; }
+          let a = p.a0 * g * (.45 + .55 * front) * clamp((1 - t) / .12) * clamp(t / .05);
+          a = p.kind >= 2 ? Math.min(1, a * (1 + cl * .7)) : a * (1 - cl * .75);
+          let s = p.sz * u * (.6 + t * .9) * (1 - c3 * .5);
+          if (b > 0) {
+            const eb = 1 - Math.exp(-b * 2.6);
+            x = cx + Math.cos(p.ba) * p.bs * eb * u;
+            y = ly + Math.sin(p.ba) * p.bs * eb * u * .9;
+            a = p.a0 * Math.max(0, 1 - b / 1.3) * (p.kind >= 2 ? 1 : .5);
+            s *= 1 + b * .6;
+          }
+          p.x = x; p.y = y; p.a = a; p.s = s; p.f = front >= .5;
+        }
+        const pass = (front, add) => {
+          ctx.globalCompositeOperation = add ? "lighter" : "source-over";
+          for (const p of P) {
+            if (p.f !== front || p.kind >= 2 !== add || p.a < .01) continue;
+            ctx.globalAlpha = p.a;
+            ctx.drawImage(S[KINDS[p.kind]], p.x - p.s / 2, p.y - p.s / 2, p.s, p.s);
+          }
+        };
+        pass(false, false); pass(false, true); pass(true, false); pass(true, true);
+        ctx.globalCompositeOperation = "source-over";
+        ctx.globalAlpha = 1;
+      }
+      const gk = b > 0 ? Math.max(0, 1 - b / .9) : c3;
+      if (gk > .01) {
+        const rad = (30 + c3 * 150) * u, gr = ctx.createRadialGradient(cx, ly, 0, cx, ly, rad);
+        gr.addColorStop(0, "rgba(255,244,210,1)");
+        gr.addColorStop(.35, "rgba(255,214,120,.55)");
+        gr.addColorStop(1, "rgba(212,175,55,0)");
+        ctx.globalCompositeOperation = "lighter";
+        ctx.globalAlpha = gk * .95;
+        ctx.fillStyle = gr;
+        ctx.fillRect(cx - rad, ly - rad, rad * 2, rad * 2);
+        ctx.globalCompositeOperation = "source-over";
+        ctx.globalAlpha = 1;
+      }
+      if (b > .6) {
+        const ramp = clamp((b - .6) / .8);
+        ctx.globalCompositeOperation = "lighter";
+        AE.forEach((q) => {
+          q.y -= q.v * dt * .06; q.ph += dt * 1.1;
+          if (q.y < -.05) { q.y = 1.05; q.x = Math.random(); }
+          const fade = clamp(q.y / .3) * clamp((1.05 - q.y) / .15);
+          ctx.globalAlpha = ramp * fade * (.55 + .45 * Math.sin(q.ph * 3));
+          const r = q.r * u;
+          ctx.drawImage(S.gold, q.x * W + Math.sin(q.ph) * 12 - r, q.y * H - r, r * 2, r * 2);
+        });
+        ctx.globalCompositeOperation = "source-over";
+        ctx.globalAlpha = 1;
+      }
       raf = requestAnimationFrame(tick);
     };
-    tick();
+    raf = requestAnimationFrame(tick);
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
     };
   }, []);
-  const cls = stage >= 3 ? "open" : stage === 2 ? "s2" : stage === 1 ? "s1" : "";
+  const cls = Array.from({ length: phase }, (_, i) => "ph" + (i + 1)).join(" ");
   const h = React.createElement;
   const skip = () => { document.documentElement.classList.remove("booting"); onDone(); };
-  return h("div", { className: `splash ${cls}`, "aria-label": "شاشة الدخول" },
-    h("div", { className: "door door-l" }),
-    h("div", { className: "door door-r" }),
-    h("div", { className: "splash-vignette" }),
-    h("div", { className: "splash-seam" }),
-    h("div", { className: "splash-shade" }),
+  return h("div", { className: `splash ${cls}`, "aria-label": "\u0634\u0627\u0634\u0629 \u0627\u0644\u062F\u062E\u0648\u0644" },
+    h("div", { className: "splash-sky" }),
     h("canvas", { ref: cv }),
+    h("div", { className: "splash-vignette" }),
+    h("div", { className: "splash-flash" }),
+    h("div", { className: "splash-streak" }),
     h("div", { className: "splash-ring" }),
     h("div", { className: "splash-ring r2" }),
     h("div", { className: "splash-logo" },
@@ -348,8 +508,11 @@ function Splash({ onDone }) {
         h("div", { className: "splash-soa", lang: "en", role: "img", "aria-label": "SOA" },
           ["S", "O", "A"].map((ch, i) => h("span", { key: i, className: "splash-ch gold-text", style: { "--i": i }, "aria-hidden": "true" }, ch))),
         h("div", { className: "splash-rule" }),
-        h("div", { className: "splash-ar" }, "أبناء الفوضى"))),
-    h("button", { type: "button", className: "splash-skip", onClick: skip }, "تخطي"));
+        h("div", { className: "splash-ar" }, "\u0623\u0628\u0646\u0627\u0621 \u0627\u0644\u0641\u0648\u0636\u0649"))),
+    h("div", { className: "splash-bar top" }),
+    h("div", { className: "splash-bar bot" }),
+    h("div", { className: "splash-grain" }),
+    h("button", { type: "button", className: "splash-skip", onClick: skip }, "\u062A\u062E\u0637\u064A"));
 }
 function AuthShell({ sub, children }) {
   return /* @__PURE__ */ React.createElement("div", { className: "login gutter" }, /* @__PURE__ */ React.createElement("div", { className: "col" }, /* @__PURE__ */ React.createElement("div", { className: "login-logo" }, /* @__PURE__ */ React.createElement(Logo, { size: 130 }), /* @__PURE__ */ React.createElement("div", { className: "disp gold-text", style: { fontSize: 30, fontWeight: 700, lineHeight: 1.2 } }, "أبناء الفوضى"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, sub)), children));
@@ -459,6 +622,10 @@ function MemberSheet({ id, onClose }) {
   const [mode, setMode] = useState("view");
   const [form, setForm] = useState({});
   const [kickReason, setKickReason] = useState("");
+  const [rk, setRk] = useState("عضو");
+  const [ar, setAr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [cred, setCred] = useState(null);
   const m = db.members.find((x) => x.id === id);
   if (!m) return null;
   const t = todayKey(), wk = weekStart(t);
@@ -469,6 +636,61 @@ function MemberSheet({ id, onClose }) {
   const attRec = (db.attendance[t] || {})[m.id];
   const present = !!attRec;
   const canEdit = can.members(me.role);
+  const isL = !!m.leader;
+  const acct = acctOf(db, m.weid);
+  const canAdmin = can.leader(me.role) && !isL;
+  const roleChoices = Object.entries(ROLES).filter(([k]) => k !== "leader");
+  const openRank = () => {
+    setRk(m.rank === LEADER_RANK ? "عضو" : m.rank);
+    setAr(acct ? acct.role : "");
+    setCred(null);
+    setMode("rank");
+  };
+  const pickRole = (v) => {
+    setAr(v);
+    if (v && rankIdx(rk) > rankIdx(ROLE_RANK[v])) setRk(ROLE_RANK[v]);
+  };
+  const applyRank = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      let made = null;
+      if (ar && !acct) {
+        const pw = genPw();
+        await window.FB.saveUser({ id: null, name: m.name, weid: m.weid, role: ar, password: pw });
+        made = { weid: m.weid, password: pw, role: ar };
+      } else if (ar && acct && acct.role !== ar) {
+        await window.FB.saveUser({ ...acct, name: m.name, role: ar, password: "" });
+      } else if (!ar && acct) {
+        await window.FB.deleteUser(acct);
+      }
+      mutate((n) => {
+        const x = n.members.find((y) => y.id === m.id);
+        if (x) x.rank = rk;
+      }, `الرتبة والصلاحية: ${m.name} ← ${rk}${ar ? " + " + ROLES[ar].label : " (بدون حساب)"}`);
+      if (made) { setCred(made); notify("أُنشئ الحساب وحُدّثت الرتبة"); }
+      else { notify("تم تحديث الرتبة والصلاحية"); setMode("view"); }
+    } catch (e) {
+      notify(window.FB.errMsg(e), "warn");
+    }
+    setBusy(false);
+  };
+  const removeAdmin = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (acct) await window.FB.deleteUser(acct);
+      mutate((n) => {
+        const x = n.members.find((y) => y.id === m.id);
+        if (x) x.rank = "عضو";
+      }, `إزالة ${m.name} من الإدارة (رتبة ${m.rank}${acct ? " + حساب " + ROLES[acct.role].label : ""})`);
+      notify(`أُزيل ${m.name} من الإدارة`);
+      setMode("view");
+    } catch (e) {
+      notify(window.FB.errMsg(e), "warn");
+    }
+    setBusy(false);
+  };
   const startEdit = () => {
     setForm({ name: m.name, weid: m.weid, rank: m.rank, joined: m.joined });
     setMode("edit");
@@ -479,9 +701,11 @@ function MemberSheet({ id, onClose }) {
   const saveEdit = () => {
     mutate((n) => {
       const x = n.members.find((y) => y.id === m.id);
-      x.name = form.name.trim();
-      x.weid = norm(form.weid);
-      x.rank = form.rank;
+      if (!x.leader) {
+        x.name = form.name.trim();
+        x.weid = norm(form.weid);
+        x.rank = form.rank;
+      }
       x.joined = form.joined;
     }, `تعديل بيانات العضو ${m.name}`);
     notify("تم حفظ التعديلات");
@@ -518,10 +742,12 @@ function MemberSheet({ id, onClose }) {
     notify(`نُقل ${m.name} إلى قائمة الطرد`);
     onClose();
   };
+  if (mode === "rank") return /* @__PURE__ */ React.createElement(Sheet, { title: cred ? "تم إنشاء الحساب" : "الرتبة والصلاحية", onClose: () => { setCred(null); setMode("view"); } }, cred ? /* @__PURE__ */ React.createElement("div", { className: "form" }, /* @__PURE__ */ React.createElement("div", { className: "note warn" }, /* @__PURE__ */ React.createElement(Icon, { n: "AlertTriangle", size: 20 }), /* @__PURE__ */ React.createElement("div", null, "انسخ البيانات الآن وسلّمها لـ ", m.name, ". لن تظهر كلمة المرور مرة أخرى.")), /* @__PURE__ */ React.createElement("div", { className: "card", style: { paddingBlock: 4 } }, /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "الصلاحية"), /* @__PURE__ */ React.createElement("span", null, ROLES[cred.role].label)), /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "معرّف WePlay"), /* @__PURE__ */ React.createElement("span", { className: "mono" }, cred.weid)), /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "كلمة المرور"), /* @__PURE__ */ React.createElement("span", { className: "mono" }, cred.password))), /* @__PURE__ */ React.createElement(Btn, { kind: "gold", icon: "Copy", className: "btn-block", onClick: () => copyText(`المعرّف: ${cred.weid}\nكلمة المرور: ${cred.password}`, notify) }, "نسخ بيانات الدخول"), /* @__PURE__ */ React.createElement(Btn, { className: "btn-block", onClick: () => { setCred(null); setMode("view"); } }, "تم")) : /* @__PURE__ */ React.createElement("div", { className: "form" }, /* @__PURE__ */ React.createElement("div", { className: "note" }, /* @__PURE__ */ React.createElement(Icon, { n: "ShieldCheck", size: 20 }), /* @__PURE__ */ React.createElement("div", null, "الرتبة هي موقعه في القبيلة. الصلاحية هي ما يستطيع فعله داخل التطبيق. اختيار صلاحية يرفع رتبته تلقائياً إن كانت أقل.")), /* @__PURE__ */ React.createElement(Field, { label: "الرتبة" }, /* @__PURE__ */ React.createElement("select", { id: "rk-rank", className: "input", value: rk, onChange: (e) => setRk(e.target.value) }, RANKS.map((r) => /* @__PURE__ */ React.createElement("option", { key: r }, r)))), /* @__PURE__ */ React.createElement(Field, { label: "صلاحية الدخول للتطبيق" }, /* @__PURE__ */ React.createElement("select", { id: "rk-role", className: "input", value: ar, onChange: (e) => pickRole(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "بدون حساب (عضو عادي)"), roleChoices.map(([k, v]) => /* @__PURE__ */ React.createElement("option", { key: k, value: k }, v.label)))), ar && !acct ? /* @__PURE__ */ React.createElement("div", { className: "sub" }, "سيُنشأ له حساب بمعرّفه الحالي وكلمة مرور تظهر مرة واحدة.") : null, !ar && acct ? /* @__PURE__ */ React.createElement("div", { className: "status-line bad" }, /* @__PURE__ */ React.createElement(Icon, { n: "AlertTriangle", size: 16 }), "سيُحذف حسابه ولن يستطيع الدخول للتطبيق.") : null, ar && !acct && !validId(m.weid) ? /* @__PURE__ */ React.createElement("div", { className: "status-line bad" }, /* @__PURE__ */ React.createElement(Icon, { n: "AlertTriangle", size: 16 }), "معرّف هذا العضو تالف. عدّله أولاً.") : null, /* @__PURE__ */ React.createElement(Btn, { kind: "gold", icon: "Check", className: "btn-block", disabled: busy || ar && !acct && !validId(m.weid), onClick: applyRank }, "حفظ"), m.rank !== "عضو" || acct ? /* @__PURE__ */ React.createElement(Btn, { kind: "danger", icon: "UserMinus", className: "btn-block", onClick: () => setMode("demote") }, "إزالة من الإدارة") : null));
+  if (mode === "demote") return /* @__PURE__ */ React.createElement(Sheet, { title: "إزالة من الإدارة", onClose: () => setMode("rank") }, /* @__PURE__ */ React.createElement("div", { className: "form" }, /* @__PURE__ */ React.createElement("div", { className: "note warn" }, /* @__PURE__ */ React.createElement(Icon, { n: "UserMinus", size: 20 }), /* @__PURE__ */ React.createElement("div", null, "سيرجع ", m.name, " إلى رتبة «عضو»", acct ? ` ويُحذف حسابه (${ROLES[acct.role] ? ROLES[acct.role].label : "إداري"}) فلا يستطيع الدخول للتطبيق.` : ".")), /* @__PURE__ */ React.createElement(Btn, { kind: "danger", icon: "UserMinus", className: "btn-block", disabled: busy, onClick: removeAdmin }, "تأكيد الإزالة")));
   if (mode === "warn") return /* @__PURE__ */ React.createElement(Sheet, { title: "إصدار إنذار", onClose: () => setMode("view") }, /* @__PURE__ */ React.createElement(WarnForm, { member: m, onDone: () => setMode("view") }));
-  if (mode === "edit") return /* @__PURE__ */ React.createElement(Sheet, { title: "تعديل العضو", onClose: () => setMode("view") }, /* @__PURE__ */ React.createElement("div", { className: "form" }, /* @__PURE__ */ React.createElement(Field, { label: "الاسم" }, /* @__PURE__ */ React.createElement("input", { id: "edit-name", className: "input", maxLength: 40, value: form.name, onChange: (e) => setForm({ ...form, name: e.target.value }) })), /* @__PURE__ */ React.createElement(Field, { label: "معرّف WePlay" }, /* @__PURE__ */ React.createElement("input", { id: "edit-weid", className: "input mono", maxLength: 24, autoComplete: "off", autoCapitalize: "off", spellCheck: false, value: form.weid, onChange: (e) => setForm({ ...form, weid: e.target.value }) })), /* @__PURE__ */ React.createElement(IdError, { value: form.weid }), dupMember ? /* @__PURE__ */ React.createElement("div", { className: "status-line bad" }, /* @__PURE__ */ React.createElement(Icon, { n: "AlertTriangle", size: 16 }), "هذا المعرّف مسجّل للعضو ", dupMember.name) : null, banned ? /* @__PURE__ */ React.createElement("div", { className: "status-line bad" }, /* @__PURE__ */ React.createElement(Icon, { n: "Ban", size: 16 }), "هذا المعرّف موجود في قائمة الطرد") : null, /* @__PURE__ */ React.createElement(Field, { label: "الرتبة" }, /* @__PURE__ */ React.createElement("select", { id: "edit-rank", className: "input", value: form.rank, onChange: (e) => setForm({ ...form, rank: e.target.value }) }, RANKS.map((r) => /* @__PURE__ */ React.createElement("option", { key: r }, r)))), /* @__PURE__ */ React.createElement(Field, { label: "تاريخ الانضمام" }, /* @__PURE__ */ React.createElement("input", { id: "edit-joined", type: "date", className: "input", value: form.joined, onChange: (e) => setForm({ ...form, joined: e.target.value }) })), /* @__PURE__ */ React.createElement(Btn, { kind: "gold", icon: "Check", className: "btn-block", disabled: !form.name.trim() || !validId(form.weid) || !!dupMember || !!banned, onClick: saveEdit }, "حفظ")));
+  if (mode === "edit") return /* @__PURE__ */ React.createElement(Sheet, { title: "تعديل العضو", onClose: () => setMode("view") }, /* @__PURE__ */ React.createElement("div", { className: "form" }, /* @__PURE__ */ React.createElement(Field, { label: "الاسم" }, /* @__PURE__ */ React.createElement("input", { id: "edit-name", className: "input", maxLength: 40, disabled: isL, value: form.name, onChange: (e) => setForm({ ...form, name: e.target.value }) })), /* @__PURE__ */ React.createElement(Field, { label: "معرّف WePlay" }, /* @__PURE__ */ React.createElement("input", { id: "edit-weid", className: "input mono", maxLength: 24, disabled: isL, autoComplete: "off", autoCapitalize: "off", spellCheck: false, value: form.weid, onChange: (e) => setForm({ ...form, weid: e.target.value }) })), /* @__PURE__ */ React.createElement(IdError, { value: form.weid }), dupMember ? /* @__PURE__ */ React.createElement("div", { className: "status-line bad" }, /* @__PURE__ */ React.createElement(Icon, { n: "AlertTriangle", size: 16 }), "هذا المعرّف مسجّل للعضو ", dupMember.name) : null, banned ? /* @__PURE__ */ React.createElement("div", { className: "status-line bad" }, /* @__PURE__ */ React.createElement(Icon, { n: "Ban", size: 16 }), "هذا المعرّف موجود في قائمة الطرد") : null, /* @__PURE__ */ React.createElement(Field, { label: "الرتبة" }, /* @__PURE__ */ React.createElement("select", { id: "edit-rank", className: "input", disabled: isL, value: form.rank, onChange: (e) => setForm({ ...form, rank: e.target.value }) }, (isL ? [LEADER_RANK] : RANKS).map((r) => /* @__PURE__ */ React.createElement("option", { key: r }, r)))), /* @__PURE__ */ React.createElement(Field, { label: "تاريخ الانضمام" }, /* @__PURE__ */ React.createElement("input", { id: "edit-joined", type: "date", className: "input", value: form.joined, onChange: (e) => setForm({ ...form, joined: e.target.value }) })), /* @__PURE__ */ React.createElement(Btn, { kind: "gold", icon: "Check", className: "btn-block", disabled: !form.name.trim() || !validId(form.weid) || !!dupMember || !!banned, onClick: saveEdit }, "حفظ")));
   if (mode === "kick") return /* @__PURE__ */ React.createElement(Sheet, { title: "طرد العضو", onClose: () => setMode("view") }, /* @__PURE__ */ React.createElement("div", { className: "form" }, /* @__PURE__ */ React.createElement("div", { className: "note warn" }, /* @__PURE__ */ React.createElement(Icon, { n: "UserX", size: 20 }), /* @__PURE__ */ React.createElement("div", null, "سيُحذف ", m.name, " من القائمة ويُضاف معرّفه إلى قائمة الطرد، فلا يمكن تسجيله من جديد.")), /* @__PURE__ */ React.createElement(Field, { label: "سبب الطرد" }, /* @__PURE__ */ React.createElement("textarea", { id: "kick-reason", className: "input", value: kickReason, onChange: (e) => setKickReason(e.target.value), placeholder: "مثال: غياب طويل بلا عذر" })), !validId(m.weid) ? /* @__PURE__ */ React.createElement("div", { className: "status-line bad" }, /* @__PURE__ */ React.createElement(Icon, { n: "AlertTriangle", size: 16 }), "معرّف هذا العضو تالف فلا يمكن حظره. عدّل المعرّف أولاً، أو احذف التسجيل إن كان خطأ إدخال.") : null, /* @__PURE__ */ React.createElement(Btn, { kind: "danger", icon: "UserX", className: "btn-block", disabled: !validId(m.weid), onClick: kick }, "تأكيد الطرد")));
-  return /* @__PURE__ */ React.createElement(Sheet, { title: "بطاقة العضو", onClose }, /* @__PURE__ */ React.createElement("div", { className: "row" }, /* @__PURE__ */ React.createElement("div", { className: "avatar", style: { width: 54, height: 54, fontSize: 24 } }, initial(m.name)), /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: 18 } }, m.name), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap gap-1.5 mt-1" }, /* @__PURE__ */ React.createElement(Badge, { tone: "gold" }, m.rank), m.fake ? /* @__PURE__ */ React.createElement(Badge, { tone: "fake", icon: "UserX" }, "حساب وهمي") : null, low ? /* @__PURE__ */ React.createElement(Badge, { tone: "danger", icon: "AlertTriangle" }, "تحذير") : null, pts !== void 0 && !low && !m.fake ? /* @__PURE__ */ React.createElement(Badge, { tone: "ok", icon: "Check" }, "نشط") : null))), /* @__PURE__ */ React.createElement("div", { className: "card", style: { paddingBlock: 4 } }, /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "معرّف WePlay"), /* @__PURE__ */ React.createElement("span", { className: "row" }, /* @__PURE__ */ React.createElement(IdText, { id: m.weid }), validId(m.weid) ? /* @__PURE__ */ React.createElement("button", { type: "button", className: "icon-btn", style: { width: 32, height: 32 }, "aria-label": "نسخ المعرّف", onClick: () => copyText(m.weid, notify) }, /* @__PURE__ */ React.createElement(Icon, { n: "Copy", size: 16 })) : null)), /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "تاريخ الانضمام"), /* @__PURE__ */ React.createElement("span", null, fmtFull(m.joined))), /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "نشاط هذا الأسبوع"), /* @__PURE__ */ React.createElement("span", { className: `mono ${low ? "t-danger" : ""}` }, pts === void 0 ? "لم يُسجَّل" : nf(pts))), /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "فرص السرقات اليوم"), /* @__PURE__ */ React.createElement("span", { className: "mono" }, steal)), /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "الحضور اليوم"), /* @__PURE__ */ React.createElement("span", null, !attRec ? "لم يُسجَّل" : attRec.out ? `انصرف ${fmtTime(attRec.out)}` : `حاضر${attRec.in ? " منذ " + fmtTime(attRec.in) : ""}`)), /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "الإنذارات"), /* @__PURE__ */ React.createElement("span", { className: warns.length ? "t-danger" : "" }, warns.length))), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-2" }, /* @__PURE__ */ React.createElement(Btn, { kind: "danger", icon: "ShieldAlert", onClick: () => setMode("warn") }, "إصدار إنذار"), /* @__PURE__ */ React.createElement(Btn, { icon: present ? "RotateCcw" : "UserCheck", onClick: togglePresent }, present ? "إلغاء الحضور" : "تسجيل حضور"), canEdit ? /* @__PURE__ */ React.createElement(Btn, { icon: "Pencil", onClick: startEdit }, "تعديل البيانات") : null, canEdit ? /* @__PURE__ */ React.createElement(Btn, { icon: "UserX", onClick: toggleFake }, m.fake ? "إزالة وسم الوهمي" : "وسم حساب وهمي") : null, canEdit ? /* @__PURE__ */ React.createElement(Btn, { kind: "danger", icon: "Ban", className: "btn-block", style: { gridColumn: "1 / -1" }, onClick: () => setMode("kick") }, "طرد العضو") : null, canEdit ? /* @__PURE__ */ React.createElement(ConfirmBtn, { icon: "Trash2", label: "حذف التسجيل (خطأ إدخال)", className: "btn-block", style: { gridColumn: "1 / -1" }, onConfirm: remove }) : null), warns.length ? /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h3", { className: "h-sec", style: { fontSize: 15, marginBottom: 6 } }, "سجل الإنذارات"), /* @__PURE__ */ React.createElement("div", { className: "card card-flush divide" }, warns.slice(0, 5).map((w) => /* @__PURE__ */ React.createElement("div", { key: w.id, className: "list-row" }, /* @__PURE__ */ React.createElement("div", { className: "lr-main" }, /* @__PURE__ */ React.createElement("div", { className: "lr-name", style: { whiteSpace: "normal" } }, w.reason), /* @__PURE__ */ React.createElement("div", { className: "lr-sub" }, fmtFull(w.date), " · بواسطة ", w.by)))))) : null);
+  return /* @__PURE__ */ React.createElement(Sheet, { title: "بطاقة العضو", onClose }, /* @__PURE__ */ React.createElement("div", { className: "row" }, /* @__PURE__ */ React.createElement("div", { className: "avatar", style: { width: 54, height: 54, fontSize: 24 } }, initial(m.name)), /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: 18 } }, m.name), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap gap-1.5 mt-1" }, /* @__PURE__ */ React.createElement(Badge, { tone: "gold", icon: isL ? "Crown" : void 0 }, m.rank), acct && !isL ? /* @__PURE__ */ React.createElement(Badge, { tone: "mute", icon: "Shield" }, ROLES[acct.role] ? ROLES[acct.role].label : "حساب") : null, m.fake ? /* @__PURE__ */ React.createElement(Badge, { tone: "fake", icon: "UserX" }, "حساب وهمي") : null, low ? /* @__PURE__ */ React.createElement(Badge, { tone: "danger", icon: "AlertTriangle" }, "تحذير") : null, pts !== void 0 && !low && !m.fake ? /* @__PURE__ */ React.createElement(Badge, { tone: "ok", icon: "Check" }, "نشط") : null))), /* @__PURE__ */ React.createElement("div", { className: "card", style: { paddingBlock: 4 } }, /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "معرّف WePlay"), /* @__PURE__ */ React.createElement("span", { className: "row" }, /* @__PURE__ */ React.createElement(IdText, { id: m.weid }), validId(m.weid) ? /* @__PURE__ */ React.createElement("button", { type: "button", className: "icon-btn", style: { width: 32, height: 32 }, "aria-label": "نسخ المعرّف", onClick: () => copyText(m.weid, notify) }, /* @__PURE__ */ React.createElement(Icon, { n: "Copy", size: 16 })) : null)), /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "تاريخ الانضمام"), /* @__PURE__ */ React.createElement("span", null, fmtFull(m.joined))), /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "نشاط هذا الأسبوع"), /* @__PURE__ */ React.createElement("span", { className: `mono ${low ? "t-danger" : ""}` }, pts === void 0 ? "لم يُسجَّل" : nf(pts))), /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "فرص السرقات اليوم"), /* @__PURE__ */ React.createElement("span", { className: "mono" }, steal)), /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "الحضور اليوم"), /* @__PURE__ */ React.createElement("span", null, !attRec ? "لم يُسجَّل" : attRec.out ? `انصرف ${fmtTime(attRec.out)}` : `حاضر${attRec.in ? " منذ " + fmtTime(attRec.in) : ""}`)), /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "الإنذارات"), /* @__PURE__ */ React.createElement("span", { className: warns.length ? "t-danger" : "" }, warns.length))), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-2" }, !isL ? /* @__PURE__ */ React.createElement(Btn, { kind: "danger", icon: "ShieldAlert", onClick: () => setMode("warn") }, "إصدار إنذار") : null, /* @__PURE__ */ React.createElement(Btn, { icon: present ? "RotateCcw" : "UserCheck", onClick: togglePresent }, present ? "إلغاء الحضور" : "تسجيل حضور"), canEdit ? /* @__PURE__ */ React.createElement(Btn, { icon: "Pencil", onClick: startEdit }, "تعديل البيانات") : null, canAdmin ? /* @__PURE__ */ React.createElement(Btn, { icon: "ShieldCheck", onClick: openRank }, "الرتبة والصلاحية") : null, canEdit && !isL ? /* @__PURE__ */ React.createElement(Btn, { icon: "UserX", onClick: toggleFake }, m.fake ? "إزالة وسم الوهمي" : "وسم حساب وهمي") : null, canEdit && !isL ? /* @__PURE__ */ React.createElement(Btn, { kind: "danger", icon: "Ban", className: "btn-block", style: { gridColumn: "1 / -1" }, onClick: () => setMode("kick") }, "طرد العضو") : null, canEdit && !isL ? /* @__PURE__ */ React.createElement(ConfirmBtn, { icon: "Trash2", label: "حذف التسجيل (خطأ إدخال)", className: "btn-block", style: { gridColumn: "1 / -1" }, onConfirm: remove }) : null), warns.length ? /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h3", { className: "h-sec", style: { fontSize: 15, marginBottom: 6 } }, "سجل الإنذارات"), /* @__PURE__ */ React.createElement("div", { className: "card card-flush divide" }, warns.slice(0, 5).map((w) => /* @__PURE__ */ React.createElement("div", { key: w.id, className: "list-row" }, /* @__PURE__ */ React.createElement("div", { className: "lr-main" }, /* @__PURE__ */ React.createElement("div", { className: "lr-name", style: { whiteSpace: "normal" } }, w.reason), /* @__PURE__ */ React.createElement("div", { className: "lr-sub" }, fmtFull(w.date), " · بواسطة ", w.by)))))) : null);
 }
 function Home({ openMember, go }) {
   const { db, me, mutate, notify } = useApp();
@@ -538,11 +764,11 @@ function Home({ openMember, go }) {
   const rows = db.members.map((m) => {
     const p = db.activity[wk] ? db.activity[wk][m.id] : void 0;
     return { m, pts: p === void 0 ? null : p, steal: db.stealing[t] && db.stealing[t][m.id] || 0, warns: warnCount[m.id] || 0 };
-  });
+  }).sort((x, y) => rankIdx(x.m.rank) - rankIdx(y.m.rank));
   const low = (r) => r.pts !== null && r.pts < THRESHOLD;
-  const counts = { all: rows.length, active: rows.filter((r) => r.pts !== null && !low(r) && !r.m.fake).length, warn: rows.filter(low).length, fake: rows.filter((r) => r.m.fake).length, bad: rows.filter((r) => !validId(r.m.weid)).length };
+  const counts = { all: rows.length, staff: rows.filter((r) => r.m.rank !== "عضو").length, active: rows.filter((r) => r.pts !== null && !low(r) && !r.m.fake).length, warn: rows.filter(low).length, fake: rows.filter((r) => r.m.fake).length, bad: rows.filter((r) => !validId(r.m.weid)).length };
   const ff = f === "bad" && !counts.bad ? "all" : f;
-  const shown = rows.filter((r) => matchQ(r.m, q) && (ff === "all" || ff === "active" && r.pts !== null && !low(r) && !r.m.fake || ff === "warn" && low(r) || ff === "fake" && r.m.fake || ff === "bad" && !validId(r.m.weid)));
+  const shown = rows.filter((r) => matchQ(r.m, q) && (ff === "all" || ff === "staff" && r.m.rank !== "عضو" || ff === "active" && r.pts !== null && !low(r) && !r.m.fake || ff === "warn" && low(r) || ff === "fake" && r.m.fake || ff === "bad" && !validId(r.m.weid)));
   const recorded = rows.filter((r) => r.pts !== null);
   const avg = recorded.length ? Math.round(recorded.reduce((s, r) => s + r.pts, 0) / recorded.length) : 0;
   const stealToday = rows.reduce((s, r) => s + r.steal, 0);
@@ -550,7 +776,7 @@ function Home({ openMember, go }) {
   const clearDemo = () => {
     mutate((n) => {
       n.demo = false;
-      n.members = [];
+      n.members = n.members.filter((x) => x.leader);
       n.activity = {};
       n.stealing = {};
       n.chests = [];
@@ -562,9 +788,9 @@ function Home({ openMember, go }) {
     notify("تم مسح البيانات التجريبية، ابدأ بتسجيل الأعضاء");
   };
   const [askClear, setAskClear] = useState(false);
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, db.demo ? /* @__PURE__ */ React.createElement("div", { className: "note gold" }, /* @__PURE__ */ React.createElement(Icon, { n: "Info", size: 20 }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, "بيانات تجريبية للمعاينة. ", can.leader(me.role) ? "امسحها عند البدء بالبيانات الفعلية." : "يمسحها الرئيس عند البدء.", can.leader(me.role) ? /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, askClear ? /* @__PURE__ */ React.createElement("div", { className: "row" }, /* @__PURE__ */ React.createElement(Btn, { kind: "danger", className: "btn-sm", icon: "Trash2", onClick: clearDemo }, "تأكيد المسح"), /* @__PURE__ */ React.createElement(Btn, { className: "btn-sm", onClick: () => setAskClear(false) }, "إلغاء")) : /* @__PURE__ */ React.createElement(Btn, { className: "btn-sm", icon: "Trash2", onClick: () => setAskClear(true) }, "مسح البيانات التجريبية")) : null)) : null, counts.bad && can.members(me.role) ? /* @__PURE__ */ React.createElement("div", { className: "note warn" }, /* @__PURE__ */ React.createElement(Icon, { n: "AlertTriangle", size: 20 }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, counts.bad, " ", counts.bad === 1 ? "عضو" : "أعضاء", " بمعرّف WePlay تالف (نص طويل أو رموز غير مسموحة). افتح بطاقة العضو ثم «تعديل البيانات» لتصحيح المعرّف، أو احذف التسجيل إن كان خطأ إدخال.", /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, /* @__PURE__ */ React.createElement(Btn, { className: "btn-sm", icon: "Search", onClick: () => setF("bad") }, "عرض التالفين")))) : null, /* @__PURE__ */ React.createElement("div", { className: "strip", "aria-label": "ملخص القبيلة" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, /* @__PURE__ */ React.createElement(CountUp, { value: counts.all, ms: 800, fmt: String })), /* @__PURE__ */ React.createElement("small", null, "عضو")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", { className: counts.warn ? "t-danger" : "" }, counts.warn), /* @__PURE__ */ React.createElement("small", null, "تحت ", THRESHOLD)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", { className: "t-gold" }, nf(stealToday)), /* @__PURE__ */ React.createElement("small", null, "سرقات اليوم")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, chestsWeek), /* @__PURE__ */ React.createElement("small", null, "صناديق الأسبوع"))), recorded.length ? /* @__PURE__ */ React.createElement("div", { className: "sub", style: { marginTop: -6 } }, "متوسط النشاط هذا الأسبوع: ", /* @__PURE__ */ React.createElement("b", { className: "mono t-gold" }, nf(avg))) : null, /* @__PURE__ */ React.createElement(SearchBox, { id: "member-search", value: q, onChange: setQ }), /* @__PURE__ */ React.createElement("div", { className: "chips", role: "group", "aria-label": "تصفية الأعضاء" }, [["all", "الكل"], ["active", "نشط"], ["warn", "تحذير"], ["fake", "وهمي"], ...counts.bad ? [["bad", "معرّف تالف"]] : []].map(([k, l]) => /* @__PURE__ */ React.createElement("button", { type: "button", key: k, className: `chip ${ff === k ? "on" : ""}`, onClick: () => setF(k) }, l, " ", /* @__PURE__ */ React.createElement("b", null, counts[k])))), shown.length === 0 ? db.members.length === 0 ? /* @__PURE__ */ React.createElement(Empty, { icon: "Users", title: "لا يوجد أعضاء بعد", text: can.members(me.role) ? "افتح «المزيد» ثم «تسجيل عضو جديد» لإضافة أول عضو." : "ينتظر شيخ القبول تسجيل الأعضاء." }) : /* @__PURE__ */ React.createElement(Empty, { icon: "Search", title: "لا نتائج مطابقة", text: "غيّر كلمة البحث أو التصفية." }) : shown.map((r) => {
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, db.demo ? /* @__PURE__ */ React.createElement("div", { className: "note gold" }, /* @__PURE__ */ React.createElement(Icon, { n: "Info", size: 20 }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, "بيانات تجريبية للمعاينة. ", can.leader(me.role) ? "امسحها عند البدء بالبيانات الفعلية." : "يمسحها الرئيس عند البدء.", can.leader(me.role) ? /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, askClear ? /* @__PURE__ */ React.createElement("div", { className: "row" }, /* @__PURE__ */ React.createElement(Btn, { kind: "danger", className: "btn-sm", icon: "Trash2", onClick: clearDemo }, "تأكيد المسح"), /* @__PURE__ */ React.createElement(Btn, { className: "btn-sm", onClick: () => setAskClear(false) }, "إلغاء")) : /* @__PURE__ */ React.createElement(Btn, { className: "btn-sm", icon: "Trash2", onClick: () => setAskClear(true) }, "مسح البيانات التجريبية")) : null)) : null, counts.bad && can.members(me.role) ? /* @__PURE__ */ React.createElement("div", { className: "note warn" }, /* @__PURE__ */ React.createElement(Icon, { n: "AlertTriangle", size: 20 }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, counts.bad, " ", counts.bad === 1 ? "عضو" : "أعضاء", " بمعرّف WePlay تالف (نص طويل أو رموز غير مسموحة). افتح بطاقة العضو ثم «تعديل البيانات» لتصحيح المعرّف، أو احذف التسجيل إن كان خطأ إدخال.", /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, /* @__PURE__ */ React.createElement(Btn, { className: "btn-sm", icon: "Search", onClick: () => setF("bad") }, "عرض التالفين")))) : null, /* @__PURE__ */ React.createElement("div", { className: "strip", "aria-label": "ملخص القبيلة" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, /* @__PURE__ */ React.createElement(CountUp, { value: counts.all, ms: 800, fmt: String })), /* @__PURE__ */ React.createElement("small", null, "عضو")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", { className: counts.warn ? "t-danger" : "" }, counts.warn), /* @__PURE__ */ React.createElement("small", null, "تحت ", THRESHOLD)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", { className: "t-gold" }, nf(stealToday)), /* @__PURE__ */ React.createElement("small", null, "سرقات اليوم")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, chestsWeek), /* @__PURE__ */ React.createElement("small", null, "صناديق الأسبوع"))), recorded.length ? /* @__PURE__ */ React.createElement("div", { className: "sub", style: { marginTop: -6 } }, "متوسط النشاط هذا الأسبوع: ", /* @__PURE__ */ React.createElement("b", { className: "mono t-gold" }, nf(avg))) : null, /* @__PURE__ */ React.createElement(SearchBox, { id: "member-search", value: q, onChange: setQ }), /* @__PURE__ */ React.createElement("div", { className: "chips", role: "group", "aria-label": "تصفية الأعضاء" }, [["all", "الكل"], ["staff", "الإدارة"], ["active", "نشط"], ["warn", "تحذير"], ["fake", "وهمي"], ...counts.bad ? [["bad", "معرّف تالف"]] : []].map(([k, l]) => /* @__PURE__ */ React.createElement("button", { type: "button", key: k, className: `chip ${ff === k ? "on" : ""}`, onClick: () => setF(k) }, l, " ", /* @__PURE__ */ React.createElement("b", null, counts[k])))), shown.length === 0 ? db.members.length === 0 ? /* @__PURE__ */ React.createElement(Empty, { icon: "Users", title: "لا يوجد أعضاء بعد", text: can.members(me.role) ? "افتح «المزيد» ثم «تسجيل عضو جديد» لإضافة أول عضو." : "ينتظر شيخ القبول تسجيل الأعضاء." }) : /* @__PURE__ */ React.createElement(Empty, { icon: "Search", title: "لا نتائج مطابقة", text: "غيّر كلمة البحث أو التصفية." }) : shown.map((r) => {
     const isLow = low(r);
-    return /* @__PURE__ */ React.createElement("button", { type: "button", key: r.m.id, className: `mcard ${isLow ? "low" : ""}`, onClick: () => openMember(r.m.id) }, /* @__PURE__ */ React.createElement("div", { className: "row", style: { width: "100%" } }, /* @__PURE__ */ React.createElement("div", { className: "avatar" }, initial(r.m.name)), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { className: "mc-name" }, r.m.name), /* @__PURE__ */ React.createElement("div", { className: "mc-sub" }, /* @__PURE__ */ React.createElement("span", null, r.m.rank), /* @__PURE__ */ React.createElement("span", { className: "dot" }), /* @__PURE__ */ React.createElement(IdText, { id: r.m.weid }))), /* @__PURE__ */ React.createElement(Icon, { n: "ChevronLeft", size: 18, className: "t-mute" })), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap gap-1.5" }, r.pts === null ? /* @__PURE__ */ React.createElement(Badge, { tone: "mute" }, "لم يُسجَّل نشاط") : isLow ? /* @__PURE__ */ React.createElement(Badge, { tone: "danger", icon: "AlertTriangle" }, "تحذير") : r.m.fake ? null : /* @__PURE__ */ React.createElement(Badge, { tone: "ok", icon: "Check" }, "نشط"), r.m.fake ? /* @__PURE__ */ React.createElement(Badge, { tone: "fake", icon: "UserX" }, "حساب وهمي") : null, r.warns >= 3 ? /* @__PURE__ */ React.createElement(Badge, { tone: "danger", icon: "ShieldAlert" }, "إنذارات متكررة") : null), /* @__PURE__ */ React.createElement("div", { className: "mc-stats" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("small", null, "النشاط الأسبوعي"), /* @__PURE__ */ React.createElement("strong", { className: isLow ? "t-danger" : "" }, r.pts === null ? "—" : nf(r.pts))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("small", null, "فرص السرقات"), /* @__PURE__ */ React.createElement("strong", { className: "t-gold" }, r.steal)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("small", null, "الإنذارات"), /* @__PURE__ */ React.createElement("strong", { className: r.warns ? "t-danger" : "" }, r.warns))));
+    return /* @__PURE__ */ React.createElement("button", { type: "button", key: r.m.id, className: `mcard ${isLow ? "low" : ""}`, onClick: () => openMember(r.m.id) }, /* @__PURE__ */ React.createElement("div", { className: "row", style: { width: "100%" } }, /* @__PURE__ */ React.createElement("div", { className: "avatar" }, initial(r.m.name)), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { className: "mc-name" }, r.m.name), /* @__PURE__ */ React.createElement("div", { className: "mc-sub" }, /* @__PURE__ */ React.createElement("span", { className: r.m.leader ? "t-gold" : void 0 }, r.m.leader ? /* @__PURE__ */ React.createElement(Icon, { n: "Crown", size: 13 }) : null, r.m.leader ? " " : "", r.m.rank), /* @__PURE__ */ React.createElement("span", { className: "dot" }), /* @__PURE__ */ React.createElement(IdText, { id: r.m.weid }))), /* @__PURE__ */ React.createElement(Icon, { n: "ChevronLeft", size: 18, className: "t-mute" })), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap gap-1.5" }, r.pts === null ? /* @__PURE__ */ React.createElement(Badge, { tone: "mute" }, "لم يُسجَّل نشاط") : isLow ? /* @__PURE__ */ React.createElement(Badge, { tone: "danger", icon: "AlertTriangle" }, "تحذير") : r.m.fake ? null : /* @__PURE__ */ React.createElement(Badge, { tone: "ok", icon: "Check" }, "نشط"), r.m.fake ? /* @__PURE__ */ React.createElement(Badge, { tone: "fake", icon: "UserX" }, "حساب وهمي") : null, r.warns >= 3 ? /* @__PURE__ */ React.createElement(Badge, { tone: "danger", icon: "ShieldAlert" }, "إنذارات متكررة") : null), /* @__PURE__ */ React.createElement("div", { className: "mc-stats" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("small", null, "النشاط الأسبوعي"), /* @__PURE__ */ React.createElement("strong", { className: isLow ? "t-danger" : "" }, r.pts === null ? "—" : nf(r.pts))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("small", null, "فرص السرقات"), /* @__PURE__ */ React.createElement("strong", { className: "t-gold" }, r.steal)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("small", null, "الإنذارات"), /* @__PURE__ */ React.createElement("strong", { className: r.warns ? "t-danger" : "" }, r.warns))));
   }));
 }
 function Stealing() {
@@ -843,7 +1069,14 @@ function Accounts() {
       notify(window.FB.errMsg(err), "warn");
       return;
     }
-    mutate(() => {
+    mutate((n) => {
+      const k = norm(e.weid).toLowerCase(), imp = ROLE_RANK[e.role];
+      const x = n.members.find((y) => norm(y.weid).toLowerCase() === k);
+      if (!x) {
+        if (e.role !== "leader") n.members.push({ id: uid(), name: e.name, weid: e.weid, rank: imp, joined: todayKey(), fake: false });
+      } else if (!x.leader && e.role !== "leader" && rankIdx(x.rank) > rankIdx(imp)) {
+        x.rank = imp;
+      }
     }, `${e.id ? e.password ? "تعديل وتغيير كلمة مرور" : "تعديل" : "إنشاء"} حساب ${e.name} (${ROLES[e.role].label})`);
     setBusy(false);
     setEdit(null);
@@ -851,7 +1084,8 @@ function Accounts() {
     else notify("تم تحديث الحساب");
   };
   const roleOptions = edit ? Object.entries(ROLES).filter(([k]) => k !== "leader" || edit.role === "leader") : [];
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "note gold" }, /* @__PURE__ */ React.createElement(Icon, { n: "KeyRound", size: 20 }), /* @__PURE__ */ React.createElement("div", null, "تنشئ هنا معرّفات وكلمات مرور المسؤولين. كلمة المرور لا تُعرض بعد الحفظ، فسلّمها لصاحبها فوراً. وإن نسيها تضع له كلمة جديدة.")), /* @__PURE__ */ React.createElement(Btn, { kind: "gold", icon: "UserPlus", className: "btn-block", onClick: openNew }, "إنشاء حساب جديد"), /* @__PURE__ */ React.createElement("div", { className: "card card-flush divide" }, db.users.map((u) => /* @__PURE__ */ React.createElement("div", { key: u.id, className: "list-row" }, /* @__PURE__ */ React.createElement("span", { className: "menu-ico" }, /* @__PURE__ */ React.createElement(Icon, { n: ROLES[u.role].icon, size: 20 })), /* @__PURE__ */ React.createElement("div", { className: "lr-main" }, /* @__PURE__ */ React.createElement("div", { className: "lr-name" }, u.name, u.id === me.id ? /* @__PURE__ */ React.createElement("span", { className: "t-gold", style: { fontSize: 12 } }, " (أنت)") : null), /* @__PURE__ */ React.createElement("div", { className: "lr-sub" }, ROLES[u.role].label, " · ", /* @__PURE__ */ React.createElement("span", { className: "mono" }, u.weid))), /* @__PURE__ */ React.createElement("button", { type: "button", className: "icon-btn bordered", "aria-label": `تعديل ${u.name}`, onClick: () => {
+  const pickable = db.members.filter((x) => !x.leader && validId(x.weid) && !acctOf(db, x.weid));
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "note gold" }, /* @__PURE__ */ React.createElement(Icon, { n: "KeyRound", size: 20 }), /* @__PURE__ */ React.createElement("div", null, "تنشئ هنا معرّفات وكلمات مرور المسؤولين. كلمة المرور لا تُعرض بعد الحفظ، فسلّمها لصاحبها فوراً. وإن نسيها تضع له كلمة جديدة.")), /* @__PURE__ */ React.createElement(Btn, { kind: "gold", icon: "UserPlus", className: "btn-block", onClick: openNew }, "إنشاء حساب جديد"), /* @__PURE__ */ React.createElement("div", { className: "card card-flush divide" }, db.users.map((u) => /* @__PURE__ */ React.createElement("div", { key: u.id, className: "list-row" }, /* @__PURE__ */ React.createElement("span", { className: "menu-ico" }, /* @__PURE__ */ React.createElement(Icon, { n: ROLES[u.role].icon, size: 20 })), /* @__PURE__ */ React.createElement("div", { className: "lr-main" }, /* @__PURE__ */ React.createElement("div", { className: "lr-name" }, u.name, u.id === me.id ? /* @__PURE__ */ React.createElement("span", { className: "t-gold", style: { fontSize: 12 } }, " (أنت)") : null), /* @__PURE__ */ React.createElement("div", { className: "lr-sub" }, ROLES[u.role].label, " · ", /* @__PURE__ */ React.createElement("span", { className: "mono" }, u.weid), (() => { const mm = db.members.find((x) => norm(x.weid).toLowerCase() === norm(u.weid).toLowerCase()); return mm ? " · " + mm.rank : ""; })())), /* @__PURE__ */ React.createElement("button", { type: "button", className: "icon-btn bordered", "aria-label": `تعديل ${u.name}`, onClick: () => {
     setShow(false);
     setEdit({ ...u, password: "" });
   } }, /* @__PURE__ */ React.createElement(Icon, { n: "Pencil", size: 18 })), u.id !== me.id ? /* @__PURE__ */ React.createElement(DeleteBtn, { label: `حذف ${u.name}`, onDelete: () => {
@@ -860,7 +1094,7 @@ function Accounts() {
       }, `حذف حساب ${u.name}`);
       notify("حُذف الحساب");
     }).catch((err) => notify(window.FB.errMsg(err), "warn"));
-  } }) : null))), edit ? /* @__PURE__ */ React.createElement(Sheet, { title: edit.id ? "تعديل الحساب" : "حساب جديد", onClose: () => setEdit(null) }, /* @__PURE__ */ React.createElement("div", { className: "form" }, /* @__PURE__ */ React.createElement(Field, { label: "اسم المسؤول" }, /* @__PURE__ */ React.createElement("input", { id: "ac-name", className: "input", maxLength: 40, value: edit.name, onChange: (e) => setEdit({ ...edit, name: e.target.value }) })), /* @__PURE__ */ React.createElement(Field, { label: "معرّف WePlay" }, /* @__PURE__ */ React.createElement("input", { id: "ac-weid", className: "input mono", maxLength: 24, autoComplete: "off", autoCapitalize: "off", spellCheck: false, value: edit.weid, onChange: (e) => setEdit({ ...edit, weid: e.target.value }) })), /* @__PURE__ */ React.createElement(IdError, { value: edit.weid }), clash ? /* @__PURE__ */ React.createElement("div", { className: "status-line bad" }, /* @__PURE__ */ React.createElement(Icon, { n: "AlertTriangle", size: 16 }), "هذا المعرّف له حساب مسبقاً (", clash.name, ").") : null, banned ? /* @__PURE__ */ React.createElement("div", { className: "status-line bad" }, /* @__PURE__ */ React.createElement(Icon, { n: "Ban", size: 16 }), "هذا المعرّف في قائمة الطرد.") : null, /* @__PURE__ */ React.createElement(Field, { label: "الصلاحية" }, /* @__PURE__ */ React.createElement("select", { id: "ac-role", className: "input", value: edit.role, disabled: edit.id === me.id, onChange: (e) => setEdit({ ...edit, role: e.target.value }) }, roleOptions.map(([k, v]) => /* @__PURE__ */ React.createElement("option", { key: k, value: k }, v.label)))), /* @__PURE__ */ React.createElement(Field, { label: edit.id ? "كلمة مرور جديدة (اتركها فارغة دون تغيير)" : "كلمة المرور", hint: `${MIN_PW} أحرف على الأقل.` }, /* @__PURE__ */ React.createElement("div", { className: "row" }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement(PwInput, { id: "ac-pw", value: edit.password, onChange: (v) => setEdit({ ...edit, password: v }), show, setShow, placeholder: edit.id ? "بدون تغيير" : "", autoComplete: "new-password" })), /* @__PURE__ */ React.createElement(Btn, { className: "btn-sm", icon: "RotateCcw", onClick: () => {
+  } }) : null))), edit ? /* @__PURE__ */ React.createElement(Sheet, { title: edit.id ? "تعديل الحساب" : "حساب جديد", onClose: () => setEdit(null) }, /* @__PURE__ */ React.createElement("div", { className: "form" }, !edit.id && pickable.length ? /* @__PURE__ */ React.createElement(Field, { label: "اختيار من الأعضاء (اختياري)" }, /* @__PURE__ */ React.createElement("select", { id: "ac-pick", className: "input", value: "", onChange: (e) => { const x = pickable.find((y) => y.id === e.target.value); if (x) setEdit({ ...edit, name: x.name, weid: x.weid, role: edit.role }); } }, /* @__PURE__ */ React.createElement("option", { value: "" }, "— عضو من القائمة —"), pickable.map((x) => /* @__PURE__ */ React.createElement("option", { key: x.id, value: x.id }, x.name, " · ", x.rank)))) : null, /* @__PURE__ */ React.createElement(Field, { label: "اسم المسؤول" }, /* @__PURE__ */ React.createElement("input", { id: "ac-name", className: "input", maxLength: 40, value: edit.name, onChange: (e) => setEdit({ ...edit, name: e.target.value }) })), /* @__PURE__ */ React.createElement(Field, { label: "معرّف WePlay" }, /* @__PURE__ */ React.createElement("input", { id: "ac-weid", className: "input mono", maxLength: 24, autoComplete: "off", autoCapitalize: "off", spellCheck: false, value: edit.weid, onChange: (e) => setEdit({ ...edit, weid: e.target.value }) })), /* @__PURE__ */ React.createElement(IdError, { value: edit.weid }), clash ? /* @__PURE__ */ React.createElement("div", { className: "status-line bad" }, /* @__PURE__ */ React.createElement(Icon, { n: "AlertTriangle", size: 16 }), "هذا المعرّف له حساب مسبقاً (", clash.name, ").") : null, banned ? /* @__PURE__ */ React.createElement("div", { className: "status-line bad" }, /* @__PURE__ */ React.createElement(Icon, { n: "Ban", size: 16 }), "هذا المعرّف في قائمة الطرد.") : null, /* @__PURE__ */ React.createElement(Field, { label: "الصلاحية" }, /* @__PURE__ */ React.createElement("select", { id: "ac-role", className: "input", value: edit.role, disabled: edit.id === me.id, onChange: (e) => setEdit({ ...edit, role: e.target.value }) }, roleOptions.map(([k, v]) => /* @__PURE__ */ React.createElement("option", { key: k, value: k }, v.label)))), /* @__PURE__ */ React.createElement(Field, { label: edit.id ? "كلمة مرور جديدة (اتركها فارغة دون تغيير)" : "كلمة المرور", hint: `${MIN_PW} أحرف على الأقل.` }, /* @__PURE__ */ React.createElement("div", { className: "row" }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement(PwInput, { id: "ac-pw", value: edit.password, onChange: (v) => setEdit({ ...edit, password: v }), show, setShow, placeholder: edit.id ? "بدون تغيير" : "", autoComplete: "new-password" })), /* @__PURE__ */ React.createElement(Btn, { className: "btn-sm", icon: "RotateCcw", onClick: () => {
     setShow(true);
     setEdit({ ...edit, password: genPw() });
   } }, "توليد"))), pwBad ? /* @__PURE__ */ React.createElement("div", { className: "status-line bad" }, /* @__PURE__ */ React.createElement(Icon, { n: "AlertTriangle", size: 16 }), "كلمة المرور قصيرة.") : null, /* @__PURE__ */ React.createElement(Btn, { kind: "gold", icon: "Check", className: "btn-block", disabled: !valid || busy, onClick: save }, "حفظ"))) : null, created ? /* @__PURE__ */ React.createElement(Sheet, { title: created.isNew ? "تم إنشاء الحساب" : "تم تغيير كلمة المرور", onClose: () => setCreated(null) }, /* @__PURE__ */ React.createElement("div", { className: "note warn" }, /* @__PURE__ */ React.createElement(Icon, { n: "AlertTriangle", size: 20 }), /* @__PURE__ */ React.createElement("div", null, "انسخ البيانات الآن وسلّمها لـ ", created.name, ". لن تظهر كلمة المرور مرة أخرى.")), /* @__PURE__ */ React.createElement("div", { className: "card", style: { paddingBlock: 4 } }, /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "الصلاحية"), /* @__PURE__ */ React.createElement("span", null, ROLES[created.role].label)), /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "معرّف WePlay"), /* @__PURE__ */ React.createElement("span", { className: "mono" }, created.weid)), /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "كلمة المرور"), /* @__PURE__ */ React.createElement("span", { className: "mono t-gold" }, created.password))), /* @__PURE__ */ React.createElement(Btn, { kind: "gold", icon: "Copy", className: "btn-block", onClick: () => copyText(`قبيلة أبناء الفوضى
@@ -979,6 +1213,20 @@ function App() {
     if (Object.keys(patch).length) FB.save(patch).catch((e) => notify(FB.errMsg(e), "warn"));
   };
   useEffect(() => {
+    if (!me || me.role !== "leader" || !ready.data) return;
+    const k = norm(me.weid).toLowerCase();
+    const ex = db.members.find((x) => x.leader || norm(x.weid).toLowerCase() === k);
+    if (ex && ex.leader && ex.rank === LEADER_RANK && ex.name === me.name && ex.weid === me.weid) return;
+    mutate((n) => {
+      let x = n.members.find((y) => y.leader || norm(y.weid).toLowerCase() === k);
+      if (!x) {
+        n.members.unshift({ id: uid(), name: me.name, weid: me.weid, rank: LEADER_RANK, joined: todayKey(), fake: false, leader: true });
+      } else {
+        x.leader = true; x.rank = LEADER_RANK; x.name = me.name; x.weid = me.weid;
+      }
+    });
+  }, [me && me.id, me && me.name, me && me.weid, ready.data, db.members.length]);
+  useEffect(() => {
     if (me && ready.data && loginFlag.current) {
       loginFlag.current = false;
       mutate(() => {
@@ -996,6 +1244,7 @@ function App() {
     setSetupErr("");
     const data = { ...emptyDb(), ...demo ? demoData() : {} };
     delete data.users;
+    data.members = [{ id: uid(), name, weid: norm(weid), rank: LEADER_RANK, joined: todayKey(), fake: false, leader: true }, ...data.members || []];
     data.audit = [{ id: uid(), ts: Date.now(), by: name, role: "leader", text: "تسجيل الرئيس وبدء النظام" }];
     try {
       await FB.setupFirst({ name, weid, pw, data });
