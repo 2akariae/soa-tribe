@@ -5,18 +5,12 @@ function Icon({ n, size = 20, sw = 1.8, className = "" }) {
   if (!C) return /* @__PURE__ */ React.createElement("span", { className, style: { display: "inline-block", width: size, height: size } });
   return /* @__PURE__ */ React.createElement(C, { size, strokeWidth: sw, className, "aria-hidden": "true" });
 }
-const LOGO_CROP = { x: 50, y: 365, w: 765, h: 925, iw: 914, ih: 1600 };
+// L-logo: logo-emblem.webp (shaffaf, bla background). Ila bddlti l-logo 3awd nfs smiya. Fallback: logo.jpeg
 function Logo({ size = 120 }) {
-  const c = LOGO_CROP, k = size / c.h;
-  return /* @__PURE__ */ React.createElement(
-    "span",
-    {
-      className: "logo-img",
-      role: "img",
-      "aria-label": "شعار القبيلة",
-      style: { width: Math.round(c.w * k), height: size, backgroundImage: "url(logo.jpeg)", backgroundSize: `${c.iw * k}px ${c.ih * k}px`, backgroundPosition: `${-c.x * k}px ${-c.y * k}px` }
-    }
-  );
+  return /* @__PURE__ */ React.createElement("span", { className: "logo-img", role: "img", "aria-label": "شعار القبيلة", style: { width: Math.round(size * 0.8316), height: size } }, /* @__PURE__ */ React.createElement("img", {
+    src: "logo-emblem.webp", alt: "", decoding: "async", draggable: false,
+    onError: (e) => { e.currentTarget.onerror = null; e.currentTarget.src = "logo.jpeg"; }
+  }));
 }
 // count-up dyal l-arqam: kat-bda mn ba3d ma tkhtfi splash
 function CountUp({ value, ms = 1000, fmt }) {
@@ -264,7 +258,7 @@ function useDraft(src, key) {
   return { d, val, set, dirty, reset: () => setD({}) };
 }
 // Splash cinematic: tornado -> collapse -> flash -> logo reveal -> wordmark -> open. Awqat b ms (7ewlha hna).
-const SPL = { storm: 150, collapse: 2400, reveal: 3300, word: 4200, open: 5600, done: 6900 };
+const SPL = { storm: 150, collapse: 2200, reveal: 3000, word: 3800, open: 5000, done: 7200 };
 function Splash({ onDone }) {
   const [phase, setPhase] = useState(0);
   const cv = useRef(null);
@@ -446,7 +440,7 @@ function Splash({ onDone }) {
         const pass = (front, add) => {
           ctx.globalCompositeOperation = add ? "lighter" : "source-over";
           for (const p of P) {
-            if (p.f !== front || p.kind >= 2 !== add || p.a < .01) continue;
+            if (p.f !== front || p.kind >= 2 !== add || p.a < .01 || b > 0 && p.kind < 2) continue;
             ctx.globalAlpha = p.a;
             ctx.drawImage(S[KINDS[p.kind]], p.x - p.s / 2, p.y - p.s / 2, p.s, p.s);
           }
@@ -493,14 +487,9 @@ function Splash({ onDone }) {
   const cls = Array.from({ length: phase }, (_, i) => "ph" + (i + 1)).join(" ");
   const h = React.createElement;
   const skip = () => { document.documentElement.classList.remove("booting"); onDone(); };
-  return h("div", { className: `splash ${cls}`, "aria-label": "\u0634\u0627\u0634\u0629 \u0627\u0644\u062F\u062E\u0648\u0644" },
+  const layer = (side) => h("div", { key: side, className: `splash-half ${side}`, "aria-hidden": side === "r" ? "true" : void 0 },
     h("div", { className: "splash-sky" }),
-    h("canvas", { ref: cv }),
     h("div", { className: "splash-vignette" }),
-    h("div", { className: "splash-flash" }),
-    h("div", { className: "splash-streak" }),
-    h("div", { className: "splash-ring" }),
-    h("div", { className: "splash-ring r2" }),
     h("div", { className: "splash-logo" },
       h("div", { className: "splash-glow" }),
       h(Logo, { size: 250 }),
@@ -508,11 +497,17 @@ function Splash({ onDone }) {
         h("div", { className: "splash-soa", lang: "en", role: "img", "aria-label": "SOA" },
           ["S", "O", "A"].map((ch, i) => h("span", { key: i, className: "splash-ch gold-text", style: { "--i": i }, "aria-hidden": "true" }, ch))),
         h("div", { className: "splash-rule" }),
-        h("div", { className: "splash-ar" }, "\u0623\u0628\u0646\u0627\u0621 \u0627\u0644\u0641\u0648\u0636\u0649"))),
-    h("div", { className: "splash-bar top" }),
-    h("div", { className: "splash-bar bot" }),
+        h("div", { className: "splash-ar" }, "أبناء الفوضى"))));
+  return h("div", { className: `splash ${cls}`, "aria-label": "شاشة الدخول" },
+    layer("l"), layer("r"),
+    h("canvas", { ref: cv }),
+    h("div", { className: "splash-flash" }),
+    h("div", { className: "splash-streak" }),
+    h("div", { className: "splash-ring" }),
+    h("div", { className: "splash-ring r2" }),
+    h("div", { className: "splash-seam" }),
     h("div", { className: "splash-grain" }),
-    h("button", { type: "button", className: "splash-skip", onClick: skip }, "\u062A\u062E\u0637\u064A"));
+    h("button", { type: "button", className: "splash-skip", onClick: skip }, "تخطي"));
 }
 function AuthShell({ sub, children }) {
   return /* @__PURE__ */ React.createElement("div", { className: "login gutter" }, /* @__PURE__ */ React.createElement("div", { className: "col" }, /* @__PURE__ */ React.createElement("div", { className: "login-logo" }, /* @__PURE__ */ React.createElement(Logo, { size: 130 }), /* @__PURE__ */ React.createElement("div", { className: "disp gold-text", style: { fontSize: 30, fontWeight: 700, lineHeight: 1.2 } }, "أبناء الفوضى"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, sub)), children));
