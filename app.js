@@ -303,9 +303,9 @@ function Splash({ onDone }) {
       return k;
     };
     const S = {
-      dust: sprite([[0, "rgba(128,110,86,.6)"], [.5, "rgba(84,70,54,.28)"], [1, "rgba(60,50,40,0)"]]),
-      dark: sprite([[0, "rgba(16,13,10,.92)"], [.6, "rgba(16,13,10,.42)"], [1, "rgba(16,13,10,0)"]]),
-      gold: sprite([[0, "rgba(255,232,160,1)"], [.3, "rgba(212,175,55,.5)"], [1, "rgba(212,175,55,0)"]]),
+      dust: sprite([[0, "rgba(124,128,138,.6)"], [.5, "rgba(80,84,94,.28)"], [1, "rgba(54,58,66,0)"]]),
+      dark: sprite([[0, "rgba(9,11,15,.92)"], [.6, "rgba(9,11,15,.42)"], [1, "rgba(9,11,15,0)"]]),
+      gold: sprite([[0, "rgba(244,248,255,1)"], [.3, "rgba(170,194,232,.5)"], [1, "rgba(170,194,232,0)"]]),
       red: sprite([[0, "rgba(255,126,84,1)"], [.3, "rgba(214,62,46,.5)"], [1, "rgba(214,62,46,0)"]])
     };
     const KINDS = ["dust", "dark", "gold", "red"];
@@ -316,8 +316,8 @@ function Splash({ onDone }) {
       for (let i = 0; i < 46; i++) {
         const a = Math.random() * 6.283, d = Math.random() * 210, x = 256 + Math.cos(a) * d, y = 256 + Math.sin(a) * d, r = 50 + Math.random() * 90, l = 38 + Math.random() * 34;
         const gr = g.createRadialGradient(x, y, 0, x, y, r);
-        gr.addColorStop(0, `rgba(${l + 14},${l + 6},${l - 4},.34)`);
-        gr.addColorStop(1, `rgba(${l},${l - 4},${l - 12},0)`);
+        gr.addColorStop(0, `rgba(${l - 2},${l + 4},${l + 16},.34)`);
+        gr.addColorStop(1, `rgba(${l - 6},${l},${l + 8},0)`);
         g.fillStyle = gr;
         g.fillRect(x - r, y - r, r * 2, r * 2);
       }
@@ -403,8 +403,8 @@ function Splash({ onDone }) {
       }
       if (g > 0 && b < 1) {
         const bg = ctx.createRadialGradient(cx, baseY, 0, cx, baseY, W * .5);
-        bg.addColorStop(0, "rgba(130,104,64,.38)");
-        bg.addColorStop(1, "rgba(130,104,64,0)");
+        bg.addColorStop(0, "rgba(96,106,128,.38)");
+        bg.addColorStop(1, "rgba(96,106,128,0)");
         ctx.save();
         ctx.translate(0, baseY);
         ctx.scale(1, .18);
@@ -452,9 +452,9 @@ function Splash({ onDone }) {
       const gk = b > 0 ? Math.max(0, 1 - b / .9) : c3;
       if (gk > .01) {
         const rad = (30 + c3 * 150) * u, gr = ctx.createRadialGradient(cx, ly, 0, cx, ly, rad);
-        gr.addColorStop(0, "rgba(255,244,210,1)");
-        gr.addColorStop(.35, "rgba(255,214,120,.55)");
-        gr.addColorStop(1, "rgba(212,175,55,0)");
+        gr.addColorStop(0, "rgba(244,248,255,1)");
+        gr.addColorStop(.35, "rgba(170,194,232,.55)");
+        gr.addColorStop(1, "rgba(120,150,200,0)");
         ctx.globalCompositeOperation = "lighter";
         ctx.globalAlpha = gk * .95;
         ctx.fillStyle = gr;
@@ -530,7 +530,7 @@ function Setup({ onCreate, error }) {
     await onCreate({ name: f.name.trim(), weid: norm(f.weid), pw: f.pw, demo: f.demo });
     setBusy(false);
   };
-  return /* @__PURE__ */ React.createElement(AuthShell, { sub: "إعداد النظام لأول مرة" }, /* @__PURE__ */ React.createElement("form", { className: "login-card", onSubmit: submit }, /* @__PURE__ */ React.createElement("h1", { className: "h-sec", style: { fontSize: 19 } }, "تسجيل الرئيس"), /* @__PURE__ */ React.createElement("div", { className: "note gold" }, /* @__PURE__ */ React.createElement(Icon, { n: "Crown", size: 20 }), /* @__PURE__ */ React.createElement("div", null, "أنت أول مسجّل، فستصبح الرئيس بكامل الصلاحيات. ومن «إدارة الحسابات» تنشئ حسابات النواب والشيوخ والمشرفين.")), /* @__PURE__ */ React.createElement(Field, { label: "اسم الرئيس" }, /* @__PURE__ */ React.createElement("input", { id: "su-name", className: "input", maxLength: 40, value: f.name, onChange: (e) => setF({ ...f, name: e.target.value }), placeholder: "اسمك داخل اللعبة" })), /* @__PURE__ */ React.createElement(Field, { label: "معرّف WePlay" }, /* @__PURE__ */ React.createElement("input", { id: "su-weid", className: "input mono", maxLength: 24, autoComplete: "off", autoCapitalize: "off", spellCheck: false, inputMode: "text", value: f.weid, onChange: (e) => setF({ ...f, weid: e.target.value }), placeholder: "مثال: 48213907" })), /* @__PURE__ */ React.createElement(IdError, { value: f.weid }), /* @__PURE__ */ React.createElement(Field, { label: `كلمة المرور (${MIN_PW} أحرف على الأقل)` }, /* @__PURE__ */ React.createElement(PwInput, { id: "su-pw", value: f.pw, onChange: (v) => setF({ ...f, pw: v }), show, setShow, autoComplete: "new-password" })), /* @__PURE__ */ React.createElement(Field, { label: "تأكيد كلمة المرور" }, /* @__PURE__ */ React.createElement(PwInput, { id: "su-pw2", value: f.pw2, onChange: (v) => setF({ ...f, pw2: v }), show, setShow, autoComplete: "new-password" })), pwShort ? /* @__PURE__ */ React.createElement("div", { className: "status-line bad" }, /* @__PURE__ */ React.createElement(Icon, { n: "AlertTriangle", size: 16 }), "كلمة المرور قصيرة.") : null, mismatch ? /* @__PURE__ */ React.createElement("div", { className: "status-line bad" }, /* @__PURE__ */ React.createElement(Icon, { n: "AlertTriangle", size: 16 }), "كلمتا المرور غير متطابقتين.") : null, error ? /* @__PURE__ */ React.createElement("div", { className: "status-line bad", role: "alert" }, /* @__PURE__ */ React.createElement(Icon, { n: "AlertTriangle", size: 16 }), error) : null, /* @__PURE__ */ React.createElement("label", { className: "row", style: { gap: 10, fontSize: 14 } }, /* @__PURE__ */ React.createElement("input", { id: "su-demo", type: "checkbox", checked: f.demo, onChange: (e) => setF({ ...f, demo: e.target.checked }), style: { width: 20, height: 20, accentColor: "#d4af37" } }), "ابدأ بأعضاء وبيانات تجريبية للمعاينة"), /* @__PURE__ */ React.createElement(Btn, { kind: "gold", className: "btn-block", icon: "Crown", type: "submit", disabled: !ok || busy }, "تسجيل وبدء النظام"), /* @__PURE__ */ React.createElement("div", { className: "sub", style: { textAlign: "center" } }, "احفظ كلمة المرور في مكان آمن. لا يمكن استرجاعها لاحقاً.")));
+  return /* @__PURE__ */ React.createElement(AuthShell, { sub: "إعداد النظام لأول مرة" }, /* @__PURE__ */ React.createElement("form", { className: "login-card", onSubmit: submit }, /* @__PURE__ */ React.createElement("h1", { className: "h-sec", style: { fontSize: 19 } }, "تسجيل الرئيس"), /* @__PURE__ */ React.createElement("div", { className: "note gold" }, /* @__PURE__ */ React.createElement(Icon, { n: "Crown", size: 20 }), /* @__PURE__ */ React.createElement("div", null, "أنت أول مسجّل، فستصبح الرئيس بكامل الصلاحيات. ومن «إدارة الحسابات» تنشئ حسابات النواب والشيوخ والمشرفين.")), /* @__PURE__ */ React.createElement(Field, { label: "اسم الرئيس" }, /* @__PURE__ */ React.createElement("input", { id: "su-name", className: "input", maxLength: 40, value: f.name, onChange: (e) => setF({ ...f, name: e.target.value }), placeholder: "اسمك داخل اللعبة" })), /* @__PURE__ */ React.createElement(Field, { label: "معرّف WePlay" }, /* @__PURE__ */ React.createElement("input", { id: "su-weid", className: "input mono", maxLength: 24, autoComplete: "off", autoCapitalize: "off", spellCheck: false, inputMode: "text", value: f.weid, onChange: (e) => setF({ ...f, weid: e.target.value }), placeholder: "مثال: 48213907" })), /* @__PURE__ */ React.createElement(IdError, { value: f.weid }), /* @__PURE__ */ React.createElement(Field, { label: `كلمة المرور (${MIN_PW} أحرف على الأقل)` }, /* @__PURE__ */ React.createElement(PwInput, { id: "su-pw", value: f.pw, onChange: (v) => setF({ ...f, pw: v }), show, setShow, autoComplete: "new-password" })), /* @__PURE__ */ React.createElement(Field, { label: "تأكيد كلمة المرور" }, /* @__PURE__ */ React.createElement(PwInput, { id: "su-pw2", value: f.pw2, onChange: (v) => setF({ ...f, pw2: v }), show, setShow, autoComplete: "new-password" })), pwShort ? /* @__PURE__ */ React.createElement("div", { className: "status-line bad" }, /* @__PURE__ */ React.createElement(Icon, { n: "AlertTriangle", size: 16 }), "كلمة المرور قصيرة.") : null, mismatch ? /* @__PURE__ */ React.createElement("div", { className: "status-line bad" }, /* @__PURE__ */ React.createElement(Icon, { n: "AlertTriangle", size: 16 }), "كلمتا المرور غير متطابقتين.") : null, error ? /* @__PURE__ */ React.createElement("div", { className: "status-line bad", role: "alert" }, /* @__PURE__ */ React.createElement(Icon, { n: "AlertTriangle", size: 16 }), error) : null, /* @__PURE__ */ React.createElement("label", { className: "row", style: { gap: 10, fontSize: 14 } }, /* @__PURE__ */ React.createElement("input", { id: "su-demo", type: "checkbox", checked: f.demo, onChange: (e) => setF({ ...f, demo: e.target.checked }), style: { width: 20, height: 20, accentColor: "var(--gold)" } }), "ابدأ بأعضاء وبيانات تجريبية للمعاينة"), /* @__PURE__ */ React.createElement(Btn, { kind: "gold", className: "btn-block", icon: "Crown", type: "submit", disabled: !ok || busy }, "تسجيل وبدء النظام"), /* @__PURE__ */ React.createElement("div", { className: "sub", style: { textAlign: "center" } }, "احفظ كلمة المرور في مكان آمن. لا يمكن استرجاعها لاحقاً.")));
 }
 function Login({ db, onLogin, onFail }) {
   const [weid, setWeid] = useState("");
@@ -958,7 +958,7 @@ function Attendance() {
   };
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(DayNav, { day, setDay }), /* @__PURE__ */ React.createElement("div", { className: "card row", style: { justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "sub" }, "الحضور"), /* @__PURE__ */ React.createElement("strong", { className: "mono", style: { fontSize: 24 } }, /* @__PURE__ */ React.createElement("span", { className: "t-gold" }, here), /* @__PURE__ */ React.createElement("span", { className: "t-mute", style: { fontSize: 16 } }, " / ", db.members.length)), isToday ? /* @__PURE__ */ React.createElement("div", { className: "sub" }, "انصرف منهم ", left) : null), /* @__PURE__ */ React.createElement("div", { className: "row" }, /* @__PURE__ */ React.createElement(Btn, { className: "btn-sm", onClick: clear }, "مسح"), /* @__PURE__ */ React.createElement(Btn, { kind: "gold", className: "btn-sm", icon: "CheckCircle2", onClick: all }, "حضور الكل"))), /* @__PURE__ */ React.createElement(SearchBox, { id: "att-search", value: q, onChange: setQ }), db.members.length === 0 ? /* @__PURE__ */ React.createElement(Empty, { icon: "UserCheck", title: "لا يوجد أعضاء" }) : /* @__PURE__ */ React.createElement("div", { className: "card card-flush divide" }, shown.map((m) => {
     const r = rec[m.id];
-    return /* @__PURE__ */ React.createElement("div", { key: m.id, className: `list-row ${r ? "" : ""}`, style: r && !r.out ? { background: "rgba(212,175,55,.06)" } : void 0 }, /* @__PURE__ */ React.createElement("div", { className: "lr-main" }, /* @__PURE__ */ React.createElement("div", { className: "lr-name" }, m.name), /* @__PURE__ */ React.createElement("div", { className: "lr-sub" }, !r ? m.rank : r.out ? `حضر ${r.in ? fmtTime(r.in) : ""} · انصرف ${fmtTime(r.out)}` : `حاضر${r.in ? " منذ " + fmtTime(r.in) : ""}`)), !r ? /* @__PURE__ */ React.createElement(Btn, { kind: "gold", className: "btn-sm", icon: "LogIn", onClick: () => checkIn(m.id) }, "حضور") : null, r && !r.out && isToday ? /* @__PURE__ */ React.createElement(Btn, { className: "btn-sm", icon: "LogOut", onClick: () => checkOut(m.id) }, "انصراف") : null, r && r.out ? /* @__PURE__ */ React.createElement(Badge, { tone: "mute" }, "انصرف") : null, r && (r.out || !isToday) ? /* @__PURE__ */ React.createElement(Badge, { tone: "ok", icon: "Check" }, "حضر") : null, r ? /* @__PURE__ */ React.createElement("button", { type: "button", className: "icon-btn", "aria-label": `إلغاء تسجيل ${m.name}`, onClick: () => undo(m.id) }, /* @__PURE__ */ React.createElement(Icon, { n: "RotateCcw", size: 18, className: "t-mute" })) : null);
+    return /* @__PURE__ */ React.createElement("div", { key: m.id, className: `list-row ${r ? "" : ""}`, style: r && !r.out ? { background: "rgba(var(--accent-rgb),.06)" } : void 0 }, /* @__PURE__ */ React.createElement("div", { className: "lr-main" }, /* @__PURE__ */ React.createElement("div", { className: "lr-name" }, m.name), /* @__PURE__ */ React.createElement("div", { className: "lr-sub" }, !r ? m.rank : r.out ? `حضر ${r.in ? fmtTime(r.in) : ""} · انصرف ${fmtTime(r.out)}` : `حاضر${r.in ? " منذ " + fmtTime(r.in) : ""}`)), !r ? /* @__PURE__ */ React.createElement(Btn, { kind: "gold", className: "btn-sm", icon: "LogIn", onClick: () => checkIn(m.id) }, "حضور") : null, r && !r.out && isToday ? /* @__PURE__ */ React.createElement(Btn, { className: "btn-sm", icon: "LogOut", onClick: () => checkOut(m.id) }, "انصراف") : null, r && r.out ? /* @__PURE__ */ React.createElement(Badge, { tone: "mute" }, "انصرف") : null, r && (r.out || !isToday) ? /* @__PURE__ */ React.createElement(Badge, { tone: "ok", icon: "Check" }, "حضر") : null, r ? /* @__PURE__ */ React.createElement("button", { type: "button", className: "icon-btn", "aria-label": `إلغاء تسجيل ${m.name}`, onClick: () => undo(m.id) }, /* @__PURE__ */ React.createElement(Icon, { n: "RotateCcw", size: 18, className: "t-mute" })) : null);
   })));
 }
 function Events() {
