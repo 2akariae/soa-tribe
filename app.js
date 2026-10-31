@@ -46,13 +46,15 @@ const ROLES = {
   activity: { label: "نائب النشاط", icon: "Activity" },
   stealing: { label: "شيخ السرقات", icon: "Swords" },
   recruit: { label: "شيخ القبول", icon: "UserPlus" },
-  mod: { label: "مشرف / نائب / شيخ", icon: "Shield" }
+  deputy: { label: "نائب (بدون مهمة بعد)", icon: "ShieldCheck" },
+  sheikh: { label: "شيخ (بدون مهمة بعد)", icon: "ShieldCheck" },
+  mod: { label: "مشرف", icon: "Shield" }
 };
 const RANKS = ["عضو", "مشرف", "نائب", "شيخ"];
 const LEADER_RANK = "رئيس";
-const RANK_ORDER = [LEADER_RANK, "شيخ", "نائب", "مشرف", "عضو"];
+const RANK_ORDER = [LEADER_RANK, "نائب", "شيخ", "مشرف", "عضو"];
 const rankIdx = (r) => { const i = RANK_ORDER.indexOf(r); return i < 0 ? RANK_ORDER.length : i; };
-const ROLE_RANK = { leader: LEADER_RANK, chests: "نائب", activity: "نائب", stealing: "شيخ", recruit: "شيخ", mod: "مشرف" };
+const ROLE_RANK = { leader: LEADER_RANK, deputy: "نائب", sheikh: "شيخ", chests: "نائب", activity: "نائب", stealing: "شيخ", recruit: "شيخ", mod: "مشرف" };
 const acctOf = (db, weid) => { const k = norm(weid).toLowerCase(); return k ? db.users.find((u) => norm(u.weid).toLowerCase() === k) : void 0; };
 const TIERS = {
   normal: { label: "عادي", sub: "ألعاب مصغّرة", icon: "Package" },
@@ -258,7 +260,7 @@ function useDraft(src, key) {
   return { d, val, set, dirty, reset: () => setD({}) };
 }
 // Splash cinematic: tornado -> collapse -> flash -> logo reveal -> wordmark -> open. Awqat b ms (7ewlha hna).
-const SPL = { storm: 150, collapse: 2200, reveal: 3000, word: 3800, open: 5000, done: 7200 };
+const SPL = { storm: 150, collapse: 2200, reveal: 3000, word: 3800, open: 4900, done: 7700 };
 function Splash({ onDone }) {
   const [phase, setPhase] = useState(0);
   const cv = useRef(null);
@@ -302,13 +304,24 @@ function Splash({ onDone }) {
       g.fillRect(0, 0, 64, 64);
       return k;
     };
-    const S = {
-      dust: sprite([[0, "rgba(124,128,138,.6)"], [.5, "rgba(80,84,94,.28)"], [1, "rgba(54,58,66,0)"]]),
-      dark: sprite([[0, "rgba(9,11,15,.92)"], [.6, "rgba(9,11,15,.42)"], [1, "rgba(9,11,15,0)"]]),
-      gold: sprite([[0, "rgba(244,248,255,1)"], [.3, "rgba(170,194,232,.5)"], [1, "rgba(170,194,232,0)"]]),
-      red: sprite([[0, "rgba(255,126,84,1)"], [.3, "rgba(214,62,46,.5)"], [1, "rgba(214,62,46,0)"]])
+    const puff = (rgb, a0) => {
+      const k = document.createElement("canvas");
+      k.width = k.height = 96;
+      const g = k.getContext("2d");
+      for (let i = 0; i < 11; i++) {
+        const ang = Math.random() * 6.283, d = Math.random() * 28, x = 48 + Math.cos(ang) * d, y = 48 + Math.sin(ang) * d, r = 14 + Math.random() * 24;
+        const gr = g.createRadialGradient(x, y, 0, x, y, r);
+        gr.addColorStop(0, `rgba(${rgb},${a0 * (.5 + Math.random() * .5)})`);
+        gr.addColorStop(1, `rgba(${rgb},0)`);
+        g.fillStyle = gr;
+        g.fillRect(0, 0, 96, 96);
+      }
+      return k;
     };
-    const KINDS = ["dust", "dark", "gold", "red"];
+    const DUST = [0, 1, 2, 3].map(() => puff("104,108,120", .27));
+    const SOOT = [0, 1, 2].map(() => puff("7,9,13", .34));
+    const SPARK = sprite([[0, "rgba(244,248,255,1)"], [.3, "rgba(170,194,232,.5)"], [1, "rgba(170,194,232,0)"]]);
+    const EMBER = sprite([[0, "rgba(255,126,84,1)"], [.3, "rgba(214,62,46,.5)"], [1, "rgba(214,62,46,0)"]]);
     const cloud = (() => {
       const k = document.createElement("canvas");
       k.width = k.height = 512;
@@ -330,16 +343,20 @@ function Splash({ onDone }) {
       g.fillRect(0, 0, 512, 512);
       return k;
     })();
-    const N = Math.max(320, Math.min(620, Math.round(W * H / 750)));
+    const N = Math.max(360, Math.min(620, Math.round(W * H / 620)));
     const P = Array.from({ length: N }, () => {
-      const q = Math.random(), kind = q < .5 ? 0 : q < .7 ? 1 : q < .93 ? 2 : 3;
+      const q = Math.random(), kind = q < .56 ? 0 : q < .84 ? 1 : q < .96 ? 2 : 3;
       return {
         t: Math.random(), th: Math.random() * 6.283, r0: .7 + Math.random() * .6, vy: .05 + Math.random() * .1, w: .75 + Math.random() * .5,
-        kind, sz: kind === 0 ? 34 + Math.random() * 46 : kind === 1 ? 26 + Math.random() * 30 : 5 + Math.random() * 8,
-        a0: kind === 0 ? .6 : kind === 1 ? .85 : .95, ba: Math.random() * 6.283, bs: 80 + Math.random() * 380,
+        kind, pi: Math.floor(Math.random() * 4), rot: Math.random() * 6.283, rs: (Math.random() - .5) * 1.2,
+        sz: kind === 0 ? 46 + Math.random() * 60 : kind === 1 ? 40 + Math.random() * 44 : 3 + Math.random() * 5,
+        a0: kind === 0 ? .6 : kind === 1 ? .66 : .9, ba: Math.random() * 6.283, bs: 80 + Math.random() * 380,
         x: 0, y: 0, a: 0, s: 0, f: false
       };
     });
+    const SK = Array.from({ length: 52 }, () => ({ th: Math.random() * 6.283, rr: .1 + Math.random() * .42, sz: 80 + Math.random() * 90, w: .5 + Math.random() * .6, pi: Math.floor(Math.random() * 4) }));
+    const DB = Array.from({ length: 48 }, () => ({ t: .03 + Math.random() * .7, th: Math.random() * 6.283, r0: .85 + Math.random() * .5, w: 1.1 + Math.random() * .9, sz: 1.2 + Math.random() * 2.2, rot: Math.random() * 6.283, rs: (Math.random() - .5) * 14, px: 0, py: 0 }));
+    const SR = Array.from({ length: 14 }, () => ({ t0: .05 + Math.random() * .55, th0: Math.random() * 6.283, len: .12 + Math.random() * .16, r0: .9 + Math.random() * .3, w: 1 + Math.random() * .6 }));
     const AE = Array.from({ length: 34 }, () => ({ x: Math.random(), y: Math.random(), v: .25 + Math.random() * .6, ph: Math.random() * 6.283, r: 3 + Math.random() * 5 }));
     const BT = [900, 1500, 2050];
     let boltIdx = -1, bolt = null;
@@ -363,14 +380,17 @@ function Splash({ onDone }) {
       last = now;
       const u = clamp(W / 390, .8, 1.6);
       const baseY = H * .74, topY = H * .10, Hf = baseY - topY, cx = W / 2, ly = H / 2 - 58;
-      const Rmax = W * .46, Rmin = W * .022;
+      const Rmax = W * .46, Rmin = W * .02;
       const g = 1 - Math.pow(1 - clamp((e - 200) / 1500), 3);
       const cl = clamp((e - SPL.collapse) / (SPL.reveal - SPL.collapse)), c3 = cl * cl * cl;
       const b = Math.max(0, (e - SPL.reveal) / 1000);
       const jolt = e > SPL.reveal && e < SPL.reveal + 500 ? 12 * (1 - (e - SPL.reveal) / 500) : 0;
       const sh = g * (1 - cl) * 1.4 + c3 * 5 + jolt;
-      ctx.setTransform(dpr, 0, 0, dpr, (Math.random() - .5) * 2 * sh * dpr, (Math.random() - .5) * 2 * sh * dpr);
-      ctx.clearRect(-30, -30, W + 60, H + 60);
+      const ox = (Math.random() - .5) * 2 * sh, oy = (Math.random() - .5) * 2 * sh;
+      const base = () => ctx.setTransform(dpr, 0, 0, dpr, ox * dpr, oy * dpr);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, c.width, c.height);
+      base();
       let lit = 0;
       for (let i = 0; i < BT.length; i++) {
         const k = e - BT[i];
@@ -379,20 +399,36 @@ function Splash({ onDone }) {
           if (k < 70 || k > 100 && k < 200) lit = 1;
         }
       }
-      if (lit) { ctx.fillStyle = "rgba(170,190,255,.14)"; ctx.fillRect(0, 0, W, H); }
+      if (lit) { ctx.fillStyle = "rgba(170,190,255,.14)"; ctx.fillRect(-20, -20, W + 40, H + 40); }
+      const putPuff = (img, x, y, s, rot, alpha, sq) => {
+        const cs = Math.cos(rot), sn = Math.sin(rot), hh = s * (sq || 1);
+        ctx.globalAlpha = alpha;
+        ctx.setTransform(dpr * cs, dpr * sn, -dpr * sn, dpr * cs, (x + ox) * dpr, (y + oy) * dpr);
+        ctx.drawImage(img, -s / 2, -hh / 2, s, hh);
+      };
+      const fpos = (t, th, r0) => {
+        const R0 = (Rmin + (Rmax - Rmin) * Math.pow(t, 1.8)) * r0;
+        const R = R0 * (1 - c3 * .96);
+        const bend = (Math.sin(e * .0007 + t * 2.4) * .05 + Math.sin(e * .0013 - t * 5) * .022) * W * t;
+        const sn = Math.sin(th);
+        let x = cx + bend * (1 - cl) + Math.cos(th) * R, y = baseY - t * Hf * g + sn * R * .2;
+        if (cl > 0) { x += (cx - x) * c3; y += (ly - y) * c3; }
+        return [x, y, sn, R0];
+      };
       const cloudFade = b > 0 ? Math.max(0, 1 - b / 1.2) : 1;
       if (g > 0 && cloudFade > 0) {
         const sz = W * 2.2;
         ctx.save();
         ctx.translate(cx, topY + H * .03);
         ctx.scale(1, .42);
-        ctx.globalAlpha = (.75 * g * (1 - c3 * .8) + lit * .2) * cloudFade;
+        ctx.globalAlpha = (.75 * g * (1 - c3 * .8) + lit * .25) * cloudFade;
         ctx.rotate(e * .00014);
         ctx.drawImage(cloud, -sz / 2, -sz / 2, sz, sz);
         ctx.rotate(-e * .00014 * 2.6);
         ctx.globalAlpha *= .8;
         ctx.drawImage(cloud, -sz * .4, -sz * .4, sz * .8, sz * .8);
         ctx.restore();
+        base();
         ctx.globalAlpha = 1;
       }
       if (lit && bolt) {
@@ -413,20 +449,19 @@ function Splash({ onDone }) {
         ctx.fillStyle = bg;
         ctx.fillRect(cx - W * .5, baseY - W * .5, W, W);
         ctx.restore();
+        base();
         ctx.globalAlpha = 1;
       }
       if (b < 1.5) {
         for (const p of P) {
           p.t += p.vy * dt * (1 + cl * 3);
           if (p.t > 1) p.t -= 1;
-          const t = p.t, R0 = (Rmin + (Rmax - Rmin) * Math.pow(t, 1.7)) * p.r0;
+          p.rot += p.rs * dt;
+          const t = p.t, [x0, y0, sn, R0] = fpos(t, p.th, p.r0), front = (sn + 1) / 2;
           p.th += 5.2 * p.w / (.22 + R0 / Rmax) * dt * (1 + cl * 2.5);
-          const R = R0 * (1 - c3 * .96), sn = Math.sin(p.th), front = (sn + 1) / 2;
-          let x = cx + Math.sin(e * .0011 + t * 3.2) * W * .045 * t * (1 - cl) + Math.cos(p.th) * R;
-          let y = baseY - t * Hf * g + sn * R * .2;
-          if (cl > 0) { x += (cx - x) * c3; y += (ly - y) * c3; }
+          let x = x0, y = y0;
           let a = p.a0 * g * (.45 + .55 * front) * clamp((1 - t) / .12) * clamp(t / .05);
-          a = p.kind >= 2 ? Math.min(1, a * (1 + cl * .7)) : a * (1 - cl * .75);
+          a = p.kind >= 2 ? Math.min(1, a * (1 + cl * .7)) : Math.min(1, a * (1 - cl * .75) * (1 + lit * .22));
           let s = p.sz * u * (.6 + t * .9) * (1 - c3 * .5);
           if (b > 0) {
             const eb = 1 - Math.exp(-b * 2.6);
@@ -437,15 +472,73 @@ function Splash({ onDone }) {
           }
           p.x = x; p.y = y; p.a = a; p.s = s; p.f = front >= .5;
         }
+        for (const k of SK) k.th += 2.2 * k.w * dt * (1 + cl * 2);
+        const skirt = (front) => {
+          if (b > 0) return;
+          ctx.globalCompositeOperation = "source-over";
+          for (const k of SK) {
+            const sn = Math.sin(k.th);
+            if (sn >= 0 !== front) continue;
+            const R = k.rr * W * (1 - c3 * .96);
+            let x = cx + Math.cos(k.th) * R, y = baseY + sn * R * .13;
+            if (cl > 0) { x += (cx - x) * c3; y += (ly - y) * c3; }
+            putPuff(DUST[k.pi], x, y, k.sz * u * (1 - c3 * .5), 0, Math.min(1, .2 * g * (1 - c3) * (front ? 1 : .6) * (1 + lit * .25)), .62);
+          }
+          base();
+        };
         const pass = (front, add) => {
           ctx.globalCompositeOperation = add ? "lighter" : "source-over";
           for (const p of P) {
             if (p.f !== front || p.kind >= 2 !== add || p.a < .01 || b > 0 && p.kind < 2) continue;
-            ctx.globalAlpha = p.a;
-            ctx.drawImage(S[KINDS[p.kind]], p.x - p.s / 2, p.y - p.s / 2, p.s, p.s);
+            if (add) {
+              ctx.globalAlpha = p.a;
+              ctx.drawImage(p.kind === 2 ? SPARK : EMBER, p.x - p.s / 2, p.y - p.s / 2, p.s, p.s);
+            } else putPuff(p.kind === 0 ? DUST[p.pi] : SOOT[p.pi % 3], p.x, p.y, p.s, p.rot, p.a);
+          }
+          base();
+        };
+        const debris = () => {
+          if (b > 0) return;
+          ctx.globalCompositeOperation = "source-over";
+          for (const d of DB) {
+            const [x, y, sn, R0] = fpos(d.t, d.th, d.r0), al = (.5 + .4 * (sn + 1) / 2) * g * (1 - c3);
+            d.th += 7 * d.w / (.22 + R0 / Rmax) * dt * (1 + cl * 2.5);
+            d.rot += d.rs * dt;
+            if (d.px && Math.abs(d.px - x) < 90) {
+              ctx.strokeStyle = `rgba(150,156,168,${.2 * al})`;
+              ctx.lineWidth = d.sz * .5;
+              ctx.beginPath(); ctx.moveTo(d.px, d.py); ctx.lineTo(x, y); ctx.stroke();
+            }
+            d.px = x; d.py = y;
+            ctx.fillStyle = lit ? `rgba(176,186,206,${al})` : `rgba(78,82,92,${al})`;
+            const cs = Math.cos(d.rot), sn2 = Math.sin(d.rot);
+            ctx.setTransform(dpr * cs, dpr * sn2, -dpr * sn2, dpr * cs, (x + ox) * dpr, (y + oy) * dpr);
+            ctx.fillRect(-d.sz, -d.sz * .45, d.sz * 2, d.sz * .9);
+          }
+          base();
+        };
+        const streaks = () => {
+          if (b > 0) return;
+          ctx.globalCompositeOperation = "source-over";
+          ctx.lineWidth = 1;
+          for (const s of SR) {
+            s.th0 += 3.4 * s.w * dt * (1 + cl * 2.5);
+            ctx.beginPath();
+            let started = false;
+            for (let j = 0; j <= 10; j++) {
+              const [x, y, sn] = fpos(clamp(s.t0 + j * s.len / 10), s.th0 + j * .22, s.r0);
+              if (sn < -.2) { started = false; continue; }
+              if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+            }
+            ctx.strokeStyle = `rgba(210,222,240,${.1 * g * (1 - c3) + lit * .1})`;
+            ctx.stroke();
           }
         };
+        skirt(false);
         pass(false, false); pass(false, true); pass(true, false); pass(true, true);
+        debris();
+        streaks();
+        skirt(true);
         ctx.globalCompositeOperation = "source-over";
         ctx.globalAlpha = 1;
       }
@@ -471,7 +564,7 @@ function Splash({ onDone }) {
           const fade = clamp(q.y / .3) * clamp((1.05 - q.y) / .15);
           ctx.globalAlpha = ramp * fade * (.55 + .45 * Math.sin(q.ph * 3));
           const r = q.r * u;
-          ctx.drawImage(S.gold, q.x * W + Math.sin(q.ph) * 12 - r, q.y * H - r, r * 2, r * 2);
+          ctx.drawImage(SPARK, q.x * W + Math.sin(q.ph) * 12 - r, q.y * H - r, r * 2, r * 2);
         });
         ctx.globalCompositeOperation = "source-over";
         ctx.globalAlpha = 1;
@@ -499,6 +592,8 @@ function Splash({ onDone }) {
         h("div", { className: "splash-rule" }),
         h("div", { className: "splash-ar" }, "أبناء الفوضى"))));
   return h("div", { className: `splash ${cls}`, "aria-label": "شاشة الدخول" },
+    h("div", { className: "splash-light" }),
+    h("div", { className: "splash-dustfall" }),
     layer("l"), layer("r"),
     h("canvas", { ref: cv }),
     h("div", { className: "splash-flash" }),
@@ -749,6 +844,7 @@ function Home({ openMember, go }) {
   const t = todayKey(), wk = weekStart(t);
   const [q, setQ] = useState("");
   const [f, setF] = useState("all");
+  const [sortBy, setSortBy] = useState("rank");
   const warnCount = useMemo(() => {
     const c = {};
     db.warnings.forEach((w) => {
@@ -760,10 +856,18 @@ function Home({ openMember, go }) {
     const p = db.activity[wk] ? db.activity[wk][m.id] : void 0;
     return { m, pts: p === void 0 ? null : p, steal: db.stealing[t] && db.stealing[t][m.id] || 0, warns: warnCount[m.id] || 0 };
   }).sort((x, y) => rankIdx(x.m.rank) - rankIdx(y.m.rank));
+  const rankSort = (x, y) => rankIdx(x.m.rank) - rankIdx(y.m.rank);
+  const actSort = (dir) => (x, y) => {
+    if (x.pts === null && y.pts === null) return rankSort(x, y);
+    if (x.pts === null) return 1;
+    if (y.pts === null) return -1;
+    return (dir === "desc" ? y.pts - x.pts : x.pts - y.pts) || rankSort(x, y);
+  };
+  const ordered = sortBy === "rank" ? rows : [...rows].sort(actSort(sortBy === "act_desc" ? "desc" : "asc"));
   const low = (r) => r.pts !== null && r.pts < THRESHOLD;
   const counts = { all: rows.length, staff: rows.filter((r) => r.m.rank !== "عضو").length, active: rows.filter((r) => r.pts !== null && !low(r) && !r.m.fake).length, warn: rows.filter(low).length, fake: rows.filter((r) => r.m.fake).length, bad: rows.filter((r) => !validId(r.m.weid)).length };
   const ff = f === "bad" && !counts.bad ? "all" : f;
-  const shown = rows.filter((r) => matchQ(r.m, q) && (ff === "all" || ff === "staff" && r.m.rank !== "عضو" || ff === "active" && r.pts !== null && !low(r) && !r.m.fake || ff === "warn" && low(r) || ff === "fake" && r.m.fake || ff === "bad" && !validId(r.m.weid)));
+  const shown = ordered.filter((r) => matchQ(r.m, q) && (ff === "all" || ff === "staff" && r.m.rank !== "عضو" || ff === "active" && r.pts !== null && !low(r) && !r.m.fake || ff === "warn" && low(r) || ff === "fake" && r.m.fake || ff === "bad" && !validId(r.m.weid)));
   const recorded = rows.filter((r) => r.pts !== null);
   const avg = recorded.length ? Math.round(recorded.reduce((s, r) => s + r.pts, 0) / recorded.length) : 0;
   const stealToday = rows.reduce((s, r) => s + r.steal, 0);
@@ -783,7 +887,7 @@ function Home({ openMember, go }) {
     notify("تم مسح البيانات التجريبية، ابدأ بتسجيل الأعضاء");
   };
   const [askClear, setAskClear] = useState(false);
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, db.demo ? /* @__PURE__ */ React.createElement("div", { className: "note gold" }, /* @__PURE__ */ React.createElement(Icon, { n: "Info", size: 20 }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, "بيانات تجريبية للمعاينة. ", can.leader(me.role) ? "امسحها عند البدء بالبيانات الفعلية." : "يمسحها الرئيس عند البدء.", can.leader(me.role) ? /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, askClear ? /* @__PURE__ */ React.createElement("div", { className: "row" }, /* @__PURE__ */ React.createElement(Btn, { kind: "danger", className: "btn-sm", icon: "Trash2", onClick: clearDemo }, "تأكيد المسح"), /* @__PURE__ */ React.createElement(Btn, { className: "btn-sm", onClick: () => setAskClear(false) }, "إلغاء")) : /* @__PURE__ */ React.createElement(Btn, { className: "btn-sm", icon: "Trash2", onClick: () => setAskClear(true) }, "مسح البيانات التجريبية")) : null)) : null, counts.bad && can.members(me.role) ? /* @__PURE__ */ React.createElement("div", { className: "note warn" }, /* @__PURE__ */ React.createElement(Icon, { n: "AlertTriangle", size: 20 }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, counts.bad, " ", counts.bad === 1 ? "عضو" : "أعضاء", " بمعرّف WePlay تالف (نص طويل أو رموز غير مسموحة). افتح بطاقة العضو ثم «تعديل البيانات» لتصحيح المعرّف، أو احذف التسجيل إن كان خطأ إدخال.", /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, /* @__PURE__ */ React.createElement(Btn, { className: "btn-sm", icon: "Search", onClick: () => setF("bad") }, "عرض التالفين")))) : null, /* @__PURE__ */ React.createElement("div", { className: "strip", "aria-label": "ملخص القبيلة" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, /* @__PURE__ */ React.createElement(CountUp, { value: counts.all, ms: 800, fmt: String })), /* @__PURE__ */ React.createElement("small", null, "عضو")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", { className: counts.warn ? "t-danger" : "" }, counts.warn), /* @__PURE__ */ React.createElement("small", null, "تحت ", THRESHOLD)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", { className: "t-gold" }, nf(stealToday)), /* @__PURE__ */ React.createElement("small", null, "سرقات اليوم")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, chestsWeek), /* @__PURE__ */ React.createElement("small", null, "صناديق الأسبوع"))), recorded.length ? /* @__PURE__ */ React.createElement("div", { className: "sub", style: { marginTop: -6 } }, "متوسط النشاط هذا الأسبوع: ", /* @__PURE__ */ React.createElement("b", { className: "mono t-gold" }, nf(avg))) : null, /* @__PURE__ */ React.createElement(SearchBox, { id: "member-search", value: q, onChange: setQ }), /* @__PURE__ */ React.createElement("div", { className: "chips", role: "group", "aria-label": "تصفية الأعضاء" }, [["all", "الكل"], ["staff", "الإدارة"], ["active", "نشط"], ["warn", "تحذير"], ["fake", "وهمي"], ...counts.bad ? [["bad", "معرّف تالف"]] : []].map(([k, l]) => /* @__PURE__ */ React.createElement("button", { type: "button", key: k, className: `chip ${ff === k ? "on" : ""}`, onClick: () => setF(k) }, l, " ", /* @__PURE__ */ React.createElement("b", null, counts[k])))), shown.length === 0 ? db.members.length === 0 ? /* @__PURE__ */ React.createElement(Empty, { icon: "Users", title: "لا يوجد أعضاء بعد", text: can.members(me.role) ? "افتح «المزيد» ثم «تسجيل عضو جديد» لإضافة أول عضو." : "ينتظر شيخ القبول تسجيل الأعضاء." }) : /* @__PURE__ */ React.createElement(Empty, { icon: "Search", title: "لا نتائج مطابقة", text: "غيّر كلمة البحث أو التصفية." }) : shown.map((r) => {
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, db.demo ? /* @__PURE__ */ React.createElement("div", { className: "note gold" }, /* @__PURE__ */ React.createElement(Icon, { n: "Info", size: 20 }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, "بيانات تجريبية للمعاينة. ", can.leader(me.role) ? "امسحها عند البدء بالبيانات الفعلية." : "يمسحها الرئيس عند البدء.", can.leader(me.role) ? /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, askClear ? /* @__PURE__ */ React.createElement("div", { className: "row" }, /* @__PURE__ */ React.createElement(Btn, { kind: "danger", className: "btn-sm", icon: "Trash2", onClick: clearDemo }, "تأكيد المسح"), /* @__PURE__ */ React.createElement(Btn, { className: "btn-sm", onClick: () => setAskClear(false) }, "إلغاء")) : /* @__PURE__ */ React.createElement(Btn, { className: "btn-sm", icon: "Trash2", onClick: () => setAskClear(true) }, "مسح البيانات التجريبية")) : null)) : null, counts.bad && can.members(me.role) ? /* @__PURE__ */ React.createElement("div", { className: "note warn" }, /* @__PURE__ */ React.createElement(Icon, { n: "AlertTriangle", size: 20 }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, counts.bad, " ", counts.bad === 1 ? "عضو" : "أعضاء", " بمعرّف WePlay تالف (نص طويل أو رموز غير مسموحة). افتح بطاقة العضو ثم «تعديل البيانات» لتصحيح المعرّف، أو احذف التسجيل إن كان خطأ إدخال.", /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, /* @__PURE__ */ React.createElement(Btn, { className: "btn-sm", icon: "Search", onClick: () => setF("bad") }, "عرض التالفين")))) : null, /* @__PURE__ */ React.createElement("div", { className: "strip", "aria-label": "ملخص القبيلة" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, /* @__PURE__ */ React.createElement(CountUp, { value: counts.all, ms: 800, fmt: String })), /* @__PURE__ */ React.createElement("small", null, "عضو")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", { className: counts.warn ? "t-danger" : "" }, counts.warn), /* @__PURE__ */ React.createElement("small", null, "تحت ", THRESHOLD)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", { className: "t-gold" }, nf(stealToday)), /* @__PURE__ */ React.createElement("small", null, "سرقات اليوم")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, chestsWeek), /* @__PURE__ */ React.createElement("small", null, "صناديق الأسبوع"))), recorded.length ? /* @__PURE__ */ React.createElement("div", { className: "sub", style: { marginTop: -6 } }, "متوسط النشاط هذا الأسبوع: ", /* @__PURE__ */ React.createElement("b", { className: "mono t-gold" }, nf(avg))) : null, /* @__PURE__ */ React.createElement(SearchBox, { id: "member-search", value: q, onChange: setQ }), /* @__PURE__ */ React.createElement("div", { className: "chips", role: "group", "aria-label": "تصفية الأعضاء" }, [["all", "الكل"], ["staff", "الإدارة"], ["active", "نشط"], ["warn", "تحذير"], ["fake", "وهمي"], ...counts.bad ? [["bad", "معرّف تالف"]] : []].map(([k, l]) => /* @__PURE__ */ React.createElement("button", { type: "button", key: k, className: `chip ${ff === k ? "on" : ""}`, onClick: () => setF(k) }, l, " ", /* @__PURE__ */ React.createElement("b", null, counts[k])))), /* @__PURE__ */ React.createElement("div", { className: "chips sortbar", role: "group", "aria-label": "ترتيب القائمة" }, /* @__PURE__ */ React.createElement("span", { className: "sub", style: { display: "inline-flex", alignItems: "center", gap: 4, flex: "none" } }, /* @__PURE__ */ React.createElement(Icon, { n: "ArrowUpDown", size: 15 }), "الترتيب"), [["rank", "حسب الرتبة"], ["act_desc", "الأكثر نشاطاً"], ["act_asc", "الأقل نشاطاً"]].map(([k, l]) => /* @__PURE__ */ React.createElement("button", { type: "button", key: k, className: `chip ${sortBy === k ? "on" : ""}`, onClick: () => setSortBy(k) }, l))), shown.length === 0 ? db.members.length === 0 ? /* @__PURE__ */ React.createElement(Empty, { icon: "Users", title: "لا يوجد أعضاء بعد", text: can.members(me.role) ? "افتح «المزيد» ثم «تسجيل عضو جديد» لإضافة أول عضو." : "ينتظر شيخ القبول تسجيل الأعضاء." }) : /* @__PURE__ */ React.createElement(Empty, { icon: "Search", title: "لا نتائج مطابقة", text: "غيّر كلمة البحث أو التصفية." }) : shown.map((r) => {
     const isLow = low(r);
     return /* @__PURE__ */ React.createElement("button", { type: "button", key: r.m.id, className: `mcard ${isLow ? "low" : ""}`, onClick: () => openMember(r.m.id) }, /* @__PURE__ */ React.createElement("div", { className: "row", style: { width: "100%" } }, /* @__PURE__ */ React.createElement("div", { className: "avatar" }, initial(r.m.name)), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { className: "mc-name" }, r.m.name), /* @__PURE__ */ React.createElement("div", { className: "mc-sub" }, /* @__PURE__ */ React.createElement("span", { className: r.m.leader ? "t-gold" : void 0 }, r.m.leader ? /* @__PURE__ */ React.createElement(Icon, { n: "Crown", size: 13 }) : null, r.m.leader ? " " : "", r.m.rank), /* @__PURE__ */ React.createElement("span", { className: "dot" }), /* @__PURE__ */ React.createElement(IdText, { id: r.m.weid }))), /* @__PURE__ */ React.createElement(Icon, { n: "ChevronLeft", size: 18, className: "t-mute" })), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap gap-1.5" }, r.pts === null ? /* @__PURE__ */ React.createElement(Badge, { tone: "mute" }, "لم يُسجَّل نشاط") : isLow ? /* @__PURE__ */ React.createElement(Badge, { tone: "danger", icon: "AlertTriangle" }, "تحذير") : r.m.fake ? null : /* @__PURE__ */ React.createElement(Badge, { tone: "ok", icon: "Check" }, "نشط"), r.m.fake ? /* @__PURE__ */ React.createElement(Badge, { tone: "fake", icon: "UserX" }, "حساب وهمي") : null, r.warns >= 3 ? /* @__PURE__ */ React.createElement(Badge, { tone: "danger", icon: "ShieldAlert" }, "إنذارات متكررة") : null), /* @__PURE__ */ React.createElement("div", { className: "mc-stats" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("small", null, "النشاط الأسبوعي"), /* @__PURE__ */ React.createElement("strong", { className: isLow ? "t-danger" : "" }, r.pts === null ? "—" : nf(r.pts))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("small", null, "فرص السرقات"), /* @__PURE__ */ React.createElement("strong", { className: "t-gold" }, r.steal)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("small", null, "الإنذارات"), /* @__PURE__ */ React.createElement("strong", { className: r.warns ? "t-danger" : "" }, r.warns))));
   }));
@@ -816,15 +920,32 @@ function Stealing() {
     dr.reset();
     notify("تم حفظ فرص السرقات");
   };
+  const resetDay = () => {
+    const was = stored(day);
+    mutate((n) => {
+      delete n.stealing[day];
+    }, `تصفير سرقات يوم ${fmtShort(day)} (كان ${was})`);
+    dr.reset();
+    notify("صُفّرت سرقات اليوم");
+  };
+  const resetWeek = () => {
+    let was = 0;
+    for (let i = 0; i < 7; i++) was += stored(addDays(wk, i));
+    mutate((n) => {
+      for (let i = 0; i < 7; i++) delete n.stealing[addDays(wk, i)];
+    }, `تصفير سرقات الأسبوع من ${fmtShort(wk)} (كان ${was})`);
+    dr.reset();
+    notify("صُفّرت سرقات الأسبوع");
+  };
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(DayNav, { day, setDay }), /* @__PURE__ */ React.createElement("div", { className: "hero-total" }, /* @__PURE__ */ React.createElement("span", { className: "sub" }, "مجموع فرص السرقات لهذا اليوم"), /* @__PURE__ */ React.createElement("span", { className: "big gold-text" }, /* @__PURE__ */ React.createElement(CountUp, { value: total })), /* @__PURE__ */ React.createElement("div", { className: "hero-sub" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("small", null, "هذا الأسبوع"), /* @__PURE__ */ React.createElement("strong", null, nf(weekTotal))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("small", null, "المجموع الكلي"), /* @__PURE__ */ React.createElement("strong", null, nf(allTotal)))), /* @__PURE__ */ React.createElement(Btn, { className: "btn-sm", style: { marginTop: 12 }, icon: "Copy", onClick: () => copyText(`إجمالي فرص السرقات (${fmtFull(day)}): ${total}
-الإجمالي الكلي للقبيلة: ${allTotal}`, notify) }, "نسخ الملخص للهجوم")), !edit ? /* @__PURE__ */ React.createElement("div", { className: "note" }, /* @__PURE__ */ React.createElement(Icon, { n: "Lock", size: 18 }), "العرض فقط. يسجّل شيخ السرقات والرئيس الفرص.") : null, /* @__PURE__ */ React.createElement(SearchBox, { id: "steal-search", value: q, onChange: setQ }), members.length === 0 ? /* @__PURE__ */ React.createElement(Empty, { icon: "Swords", title: "لا يوجد أعضاء", text: "سجّل الأعضاء أولاً ليظهروا هنا." }) : /* @__PURE__ */ React.createElement("div", { className: "card card-flush divide" }, shown.map((m) => /* @__PURE__ */ React.createElement("div", { key: m.id, className: "list-row" + (dr.dirty.includes(m.id) ? " dirty" : "") }, /* @__PURE__ */ React.createElement("div", { className: "lr-main" }, /* @__PURE__ */ React.createElement("div", { className: "lr-name" }, m.name), /* @__PURE__ */ React.createElement("div", { className: "lr-sub" }, m.rank)), edit ? /* @__PURE__ */ React.createElement("div", { className: "stepper" }, /* @__PURE__ */ React.createElement("button", { type: "button", className: "step", "aria-label": `إنقاص ${m.name}`, onClick: () => dr.set(m.id, String(Math.max(0, cnt(m.id) - 1))) }, /* @__PURE__ */ React.createElement(Icon, { n: "Minus", size: 18 })), /* @__PURE__ */ React.createElement("input", { id: `st-${m.id}`, inputMode: "numeric", "aria-label": `فرص ${m.name}`, value: dr.val(m.id) === "" ? "0" : dr.val(m.id), onChange: (e) => dr.set(m.id, digitsOnly(e.target.value).slice(0, 3)) }), /* @__PURE__ */ React.createElement("button", { type: "button", className: "step plus", "aria-label": `زيادة ${m.name}`, onClick: () => dr.set(m.id, String(Math.min(999, cnt(m.id) + 1))) }, /* @__PURE__ */ React.createElement(Icon, { n: "Plus", size: 18 }))) : /* @__PURE__ */ React.createElement("strong", { className: "mono t-gold", style: { fontSize: 18 } }, cnt(m.id))))), /* @__PURE__ */ React.createElement(SaveBar, { count: dr.dirty.length, onSave: save, onCancel: dr.reset, label: "حفظ اليوم" }));
+الإجمالي الكلي للقبيلة: ${allTotal}`, notify) }, "نسخ الملخص للهجوم")), !edit ? /* @__PURE__ */ React.createElement("div", { className: "note" }, /* @__PURE__ */ React.createElement(Icon, { n: "Lock", size: 18 }), "العرض فقط. يسجّل شيخ السرقات والرئيس الفرص.") : null, edit ? /* @__PURE__ */ React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(ConfirmBtn, { className: "btn-sm", icon: "RotateCcw", label: "تصفير اليوم", onConfirm: resetDay }), /* @__PURE__ */ React.createElement(ConfirmBtn, { className: "btn-sm", icon: "RotateCcw", label: "تصفير الأسبوع", onConfirm: resetWeek })) : null, /* @__PURE__ */ React.createElement(SearchBox, { id: "steal-search", value: q, onChange: setQ }), members.length === 0 ? /* @__PURE__ */ React.createElement(Empty, { icon: "Swords", title: "لا يوجد أعضاء", text: "سجّل الأعضاء أولاً ليظهروا هنا." }) : /* @__PURE__ */ React.createElement("div", { className: "card card-flush divide" }, shown.map((m) => /* @__PURE__ */ React.createElement("div", { key: m.id, className: "list-row" + (dr.dirty.includes(m.id) ? " dirty" : "") }, /* @__PURE__ */ React.createElement("div", { className: "lr-main" }, /* @__PURE__ */ React.createElement("div", { className: "lr-name" }, m.name), /* @__PURE__ */ React.createElement("div", { className: "lr-sub" }, m.rank)), edit ? /* @__PURE__ */ React.createElement("div", { className: "stepper" }, /* @__PURE__ */ React.createElement("button", { type: "button", className: "step", "aria-label": `إنقاص ${m.name}`, onClick: () => dr.set(m.id, String(Math.max(0, cnt(m.id) - 1))) }, /* @__PURE__ */ React.createElement(Icon, { n: "Minus", size: 18 })), /* @__PURE__ */ React.createElement("input", { id: `st-${m.id}`, inputMode: "numeric", "aria-label": `فرص ${m.name}`, value: dr.val(m.id) === "" ? "0" : dr.val(m.id), onChange: (e) => dr.set(m.id, digitsOnly(e.target.value).slice(0, 3)) }), /* @__PURE__ */ React.createElement("button", { type: "button", className: "step plus", "aria-label": `زيادة ${m.name}`, onClick: () => dr.set(m.id, String(Math.min(999, cnt(m.id) + 1))) }, /* @__PURE__ */ React.createElement(Icon, { n: "Plus", size: 18 }))) : /* @__PURE__ */ React.createElement("strong", { className: "mono t-gold", style: { fontSize: 18 } }, cnt(m.id))))), /* @__PURE__ */ React.createElement(SaveBar, { count: dr.dirty.length, onSave: save, onCancel: dr.reset, label: "حفظ اليوم" }));
 }
 function Chests() {
   const { db, me, mutate, notify } = useApp();
   const edit = can.chests(me.role);
   const t = todayKey(), wk = weekStart(t);
   const [type, setType] = useState("normal");
-  const [mid, setMid] = useState("");
+  const [mids, setMids] = useState([]);
   const [note, setNote] = useState("");
   const [date, setDate] = useState(t);
   const [flt, setFlt] = useState("all");
@@ -834,15 +955,17 @@ function Chests() {
   });
   const top = db.members.map((m) => ({ m, p: db.activity[wk] ? db.activity[wk][m.id] : void 0 })).filter((x) => x.p !== void 0).sort((a, b) => b.p - a.p).slice(0, 5);
   const sorted = [...db.members].sort((a, b) => a.name.localeCompare(b.name, "ar"));
+  const toggleM = (id) => setMids((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id]);
   const give = () => {
-    const m = db.members.find((x) => x.id === mid);
-    if (!m) return;
+    const ms = mids.map((id) => db.members.find((x) => x.id === id)).filter(Boolean);
+    if (!ms.length) return;
+    const names = ms.map((x) => x.name).join("، ");
     mutate((n) => {
-      n.chests.unshift({ id: uid(), type, memberId: m.id, memberName: m.name, date, note: note.trim(), by: me.name });
-    }, `تسليم صندوق ${TIERS[type].label} إلى ${m.name}`);
-    notify(`سُلّم صندوق ${TIERS[type].label} إلى ${m.name}`);
+      n.chests.unshift({ id: uid(), type, memberId: ms[0].id, memberName: names, memberIds: ms.map((x) => x.id), date, note: note.trim(), by: me.name });
+    }, `تسليم صندوق ${TIERS[type].label} إلى ${names}`);
+    notify(`سُلّم صندوق ${TIERS[type].label} إلى ${names}`);
     setNote("");
-    setMid("");
+    setMids([]);
   };
   const list = db.chests.filter((c) => flt === "all" || c.type === flt).sort((a, b) => b.date.localeCompare(a.date));
   const groups = [];
@@ -855,7 +978,7 @@ function Chests() {
     }
     g.items.push(c);
   });
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h2", { className: "h-sec", style: { marginBottom: 8 } }, "صناديق هذا الأسبوع"), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-3 gap-2.5" }, Object.entries(TIERS).map(([k, v]) => /* @__PURE__ */ React.createElement("div", { key: k, className: `tier tier-${k} ${k === "rare" ? "rare" : ""}` }, /* @__PURE__ */ React.createElement(Icon, { n: v.icon, size: 22 }), /* @__PURE__ */ React.createElement("strong", null, weekCounts[k]), /* @__PURE__ */ React.createElement("small", null, v.label))))), edit ? /* @__PURE__ */ React.createElement("div", { className: "card form" }, /* @__PURE__ */ React.createElement("h2", { className: "h-sec" }, "تسليم صندوق"), /* @__PURE__ */ React.createElement("div", { className: "type-pick", role: "group", "aria-label": "نوع الصندوق" }, Object.entries(TIERS).map(([k, v]) => /* @__PURE__ */ React.createElement("button", { type: "button", key: k, className: `tier-${k} ${type === k ? "on" : ""}`, onClick: () => setType(k) }, /* @__PURE__ */ React.createElement(Icon, { n: v.icon, size: 22 }), /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text)" } }, v.label), /* @__PURE__ */ React.createElement("small", null, v.sub)))), type !== "normal" && top.length ? /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "sub", style: { marginBottom: 6 } }, "الأعلى نشاطاً هذا الأسبوع (اضغط للاختيار)"), /* @__PURE__ */ React.createElement("div", { className: "sugg" }, top.map((x) => /* @__PURE__ */ React.createElement("button", { type: "button", key: x.m.id, className: mid === x.m.id ? "on" : "", onClick: () => setMid(x.m.id) }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600 } }, x.m.name), /* @__PURE__ */ React.createElement("small", { className: "mono" }, nf(x.p), " نقطة"))))) : null, /* @__PURE__ */ React.createElement(Field, { label: "المستلم" }, /* @__PURE__ */ React.createElement("select", { id: "chest-member", className: "input", value: mid, onChange: (e) => setMid(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "اختر العضو"), sorted.map((m) => /* @__PURE__ */ React.createElement("option", { key: m.id, value: m.id }, m.name)))), /* @__PURE__ */ React.createElement(Field, { label: "سبب الاستحقاق (اختياري)" }, /* @__PURE__ */ React.createElement("input", { id: "chest-note", className: "input", value: note, onChange: (e) => setNote(e.target.value), placeholder: type === "normal" ? "مثال: فائز لعبة الأسرار" : "مثال: أعلى نشاط ودعم" })), /* @__PURE__ */ React.createElement(Field, { label: "التاريخ" }, /* @__PURE__ */ React.createElement("input", { id: "chest-date", type: "date", className: "input", value: date, max: t, onChange: (e) => setDate(e.target.value) })), /* @__PURE__ */ React.createElement(Btn, { kind: "gold", icon: "Gift", className: "btn-block", disabled: !mid || !date, onClick: give }, "تسليم الصندوق")) : /* @__PURE__ */ React.createElement("div", { className: "note" }, /* @__PURE__ */ React.createElement(Icon, { n: "Lock", size: 18 }), "العرض فقط. يوزّع نائب الصناديق والرئيس الصناديق."), /* @__PURE__ */ React.createElement("div", { className: "row", style: { justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("h2", { className: "h-sec" }, "سجل المستلمين"), /* @__PURE__ */ React.createElement("span", { className: "sub" }, list.length, " سجل")), /* @__PURE__ */ React.createElement("div", { className: "chips", role: "group", "aria-label": "تصفية الصناديق" }, [["all", "الكل"], ["normal", "عادي"], ["advanced", "متقدم"], ["rare", "نادر"]].map(([k, l]) => /* @__PURE__ */ React.createElement("button", { type: "button", key: k, className: `chip ${flt === k ? "on" : ""}`, onClick: () => setFlt(k) }, l))), groups.length === 0 ? /* @__PURE__ */ React.createElement(Empty, { icon: "Gift", title: "لا توجد سجلات", text: "ستظهر الصناديق المسلّمة هنا مع اسم المستلم والتاريخ." }) : groups.map((g) => /* @__PURE__ */ React.createElement("div", { key: g.w }, /* @__PURE__ */ React.createElement("div", { className: "week-h" }, "أسبوع ", fmtShort(g.w), " – ", fmtShort(addDays(g.w, 6))), /* @__PURE__ */ React.createElement("div", { className: "card card-flush divide", style: { marginTop: 6 } }, g.items.map((c) => /* @__PURE__ */ React.createElement("div", { key: c.id, className: "list-row" }, /* @__PURE__ */ React.createElement("span", { className: `tier-${c.type}` }, /* @__PURE__ */ React.createElement(Icon, { n: TIERS[c.type].icon, size: 24 })), /* @__PURE__ */ React.createElement("div", { className: "lr-main" }, /* @__PURE__ */ React.createElement("div", { className: "lr-name" }, c.memberName), /* @__PURE__ */ React.createElement("div", { className: "lr-sub" }, TIERS[c.type].label, " · ", fmtShort(c.date), c.note ? ` · ${c.note}` : "")), can.leader(me.role) ? /* @__PURE__ */ React.createElement(DeleteBtn, { label: "حذف السجل", onDelete: () => {
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h2", { className: "h-sec", style: { marginBottom: 8 } }, "صناديق هذا الأسبوع"), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-3 gap-2.5" }, Object.entries(TIERS).map(([k, v]) => /* @__PURE__ */ React.createElement("div", { key: k, className: `tier tier-${k} ${k === "rare" ? "rare" : ""}` }, /* @__PURE__ */ React.createElement(Icon, { n: v.icon, size: 22 }), /* @__PURE__ */ React.createElement("strong", null, weekCounts[k]), /* @__PURE__ */ React.createElement("small", null, v.label))))), edit ? /* @__PURE__ */ React.createElement("div", { className: "card form" }, /* @__PURE__ */ React.createElement("h2", { className: "h-sec" }, "تسليم صندوق"), /* @__PURE__ */ React.createElement("div", { className: "type-pick", role: "group", "aria-label": "نوع الصندوق" }, Object.entries(TIERS).map(([k, v]) => /* @__PURE__ */ React.createElement("button", { type: "button", key: k, className: `tier-${k} ${type === k ? "on" : ""}`, onClick: () => setType(k) }, /* @__PURE__ */ React.createElement(Icon, { n: v.icon, size: 22 }), /* @__PURE__ */ React.createElement("span", { style: { color: "var(--text)" } }, v.label), /* @__PURE__ */ React.createElement("small", null, v.sub)))), type !== "normal" && top.length ? /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "sub", style: { marginBottom: 6 } }, "الأعلى نشاطاً هذا الأسبوع (اضغط للاختيار)"), /* @__PURE__ */ React.createElement("div", { className: "sugg" }, top.map((x) => /* @__PURE__ */ React.createElement("button", { type: "button", key: x.m.id, className: mids.includes(x.m.id) ? "on" : "", onClick: () => toggleM(x.m.id) }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600 } }, x.m.name), /* @__PURE__ */ React.createElement("small", { className: "mono" }, nf(x.p), " نقطة"))))) : null, /* @__PURE__ */ React.createElement(Field, { label: "المستلمون (يمكن اختيار أكثر من شخص)" }, /* @__PURE__ */ React.createElement("select", { id: "chest-member", className: "input", value: "", onChange: (e) => { const v = e.target.value; if (v) setMids((p) => p.includes(v) ? p : [...p, v]); } }, /* @__PURE__ */ React.createElement("option", { value: "" }, mids.length ? "إضافة مستلم آخر" : "اختر العضو"), sorted.filter((m) => !mids.includes(m.id)).map((m) => /* @__PURE__ */ React.createElement("option", { key: m.id, value: m.id }, m.name)))), mids.length ? /* @__PURE__ */ React.createElement("div", { className: "sugg" }, mids.map((id) => { const m = db.members.find((x) => x.id === id); return m ? /* @__PURE__ */ React.createElement("button", { type: "button", key: id, className: "on", onClick: () => toggleM(id), "aria-label": `إزالة ${m.name}` }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600 } }, m.name), /* @__PURE__ */ React.createElement("small", null, "إزالة ×")) : null; })) : null, /* @__PURE__ */ React.createElement(Field, { label: "سبب الاستحقاق (اختياري)" }, /* @__PURE__ */ React.createElement("input", { id: "chest-note", className: "input", value: note, onChange: (e) => setNote(e.target.value), placeholder: type === "normal" ? "مثال: فائز لعبة الأسرار" : "مثال: أعلى نشاط ودعم" })), /* @__PURE__ */ React.createElement(Field, { label: "التاريخ" }, /* @__PURE__ */ React.createElement("input", { id: "chest-date", type: "date", className: "input", value: date, max: t, onChange: (e) => setDate(e.target.value) })), /* @__PURE__ */ React.createElement(Btn, { kind: "gold", icon: "Gift", className: "btn-block", disabled: !mids.length || !date, onClick: give }, mids.length > 1 ? `تسليم الصندوق (${mids.length} أشخاص)` : "تسليم الصندوق")) : /* @__PURE__ */ React.createElement("div", { className: "note" }, /* @__PURE__ */ React.createElement(Icon, { n: "Lock", size: 18 }), "العرض فقط. يوزّع نائب الصناديق والرئيس الصناديق."), /* @__PURE__ */ React.createElement("div", { className: "row", style: { justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("h2", { className: "h-sec" }, "سجل المستلمين"), /* @__PURE__ */ React.createElement("span", { className: "sub" }, list.length, " سجل")), /* @__PURE__ */ React.createElement("div", { className: "chips", role: "group", "aria-label": "تصفية الصناديق" }, [["all", "الكل"], ["normal", "عادي"], ["advanced", "متقدم"], ["rare", "نادر"]].map(([k, l]) => /* @__PURE__ */ React.createElement("button", { type: "button", key: k, className: `chip ${flt === k ? "on" : ""}`, onClick: () => setFlt(k) }, l))), groups.length === 0 ? /* @__PURE__ */ React.createElement(Empty, { icon: "Gift", title: "لا توجد سجلات", text: "ستظهر الصناديق المسلّمة هنا مع اسم المستلم والتاريخ." }) : groups.map((g) => /* @__PURE__ */ React.createElement("div", { key: g.w }, /* @__PURE__ */ React.createElement("div", { className: "week-h" }, "أسبوع ", fmtShort(g.w), " – ", fmtShort(addDays(g.w, 6))), /* @__PURE__ */ React.createElement("div", { className: "card card-flush divide", style: { marginTop: 6 } }, g.items.map((c) => /* @__PURE__ */ React.createElement("div", { key: c.id, className: "list-row" }, /* @__PURE__ */ React.createElement("span", { className: `tier-${c.type}` }, /* @__PURE__ */ React.createElement(Icon, { n: TIERS[c.type].icon, size: 24 })), /* @__PURE__ */ React.createElement("div", { className: "lr-main" }, /* @__PURE__ */ React.createElement("div", { className: "lr-name" }, c.memberName), /* @__PURE__ */ React.createElement("div", { className: "lr-sub" }, TIERS[c.type].label, " · ", fmtShort(c.date), c.note ? ` · ${c.note}` : "")), can.leader(me.role) ? /* @__PURE__ */ React.createElement(DeleteBtn, { label: "حذف السجل", onDelete: () => {
     mutate((n) => {
       n.chests = n.chests.filter((x) => x.id !== c.id);
     }, `حذف سجل صندوق ${c.memberName}`);
@@ -1110,7 +1233,7 @@ function More({ setSub, onLogout }) {
     { k: "accounts", icon: "KeyRound", title: "إدارة الحسابات", desc: "إنشاء الحسابات وتحديد الرموز", show: can.leader(me.role) },
     { k: "audit", icon: "ScrollText", title: "سجل العمليات", desc: "من فعل ماذا ومتى", show: can.leader(me.role) }
   ].filter((i) => i.show);
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "card row" }, /* @__PURE__ */ React.createElement("div", { className: "avatar" }, /* @__PURE__ */ React.createElement(Icon, { n: ROLES[me.role].icon, size: 22 })), /* @__PURE__ */ React.createElement("div", { className: "flex-1 min-w-0" }, /* @__PURE__ */ React.createElement("div", { className: "font-semibold" }, me.name), /* @__PURE__ */ React.createElement("div", { className: "sub" }, ROLES[me.role].label, " · ", /* @__PURE__ */ React.createElement("span", { className: "mono" }, me.weid)))), /* @__PURE__ */ React.createElement("div", { className: "card card-flush divide" }, items.map((i) => /* @__PURE__ */ React.createElement("button", { type: "button", key: i.k, className: "menu-item", onClick: () => setSub(i.k) }, /* @__PURE__ */ React.createElement("span", { className: "menu-ico" }, /* @__PURE__ */ React.createElement(Icon, { n: i.icon, size: 22 })), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontWeight: 600 } }, i.title), /* @__PURE__ */ React.createElement("span", { className: "sub", style: { display: "block" } }, i.desc)), i.n ? /* @__PURE__ */ React.createElement(Badge, { tone: "gold" }, i.n) : null, /* @__PURE__ */ React.createElement(Icon, { n: "ChevronLeft", size: 18, className: "t-mute" })))), /* @__PURE__ */ React.createElement("div", { className: "note" }, /* @__PURE__ */ React.createElement(Icon, { n: "Info", size: 18 }), /* @__PURE__ */ React.createElement("div", null, "البيانات محفوظة على هذا الجهاز فقط. لا تتزامن بين أجهزة المسؤولين.")), /* @__PURE__ */ React.createElement(Btn, { icon: "LogOut", className: "btn-block", onClick: onLogout }, "تسجيل الخروج"));
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "card row" }, /* @__PURE__ */ React.createElement("div", { className: "avatar" }, /* @__PURE__ */ React.createElement(Icon, { n: ROLES[me.role].icon, size: 22 })), /* @__PURE__ */ React.createElement("div", { className: "flex-1 min-w-0" }, /* @__PURE__ */ React.createElement("div", { className: "font-semibold" }, me.name), /* @__PURE__ */ React.createElement("div", { className: "sub" }, ROLES[me.role].label, " · ", /* @__PURE__ */ React.createElement("span", { className: "mono" }, me.weid)))), /* @__PURE__ */ React.createElement("div", { className: "card card-flush divide" }, items.map((i) => /* @__PURE__ */ React.createElement("button", { type: "button", key: i.k, className: "menu-item", onClick: () => setSub(i.k) }, /* @__PURE__ */ React.createElement("span", { className: "menu-ico" }, /* @__PURE__ */ React.createElement(Icon, { n: i.icon, size: 22 })), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { display: "block", fontWeight: 600 } }, i.title), /* @__PURE__ */ React.createElement("span", { className: "sub", style: { display: "block" } }, i.desc)), i.n ? /* @__PURE__ */ React.createElement(Badge, { tone: "gold" }, i.n) : null, /* @__PURE__ */ React.createElement(Icon, { n: "ChevronLeft", size: 18, className: "t-mute" })))), /* @__PURE__ */ React.createElement(Btn, { icon: "LogOut", className: "btn-block", onClick: onLogout }, "تسجيل الخروج"));
 }
 const NAV = [
   { k: "home", label: "الرئيسية", icon: "Users" },
