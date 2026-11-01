@@ -87,6 +87,26 @@ const weekStart = (k) => {
   d.setDate(d.getDate() - (d.getDay() + 1) % 7);
   return dkey(d);
 };
+// أسبوع WePlay: من السبت 21:00 إلى السبت 21:00 بتوقيت المغرب (Africa/Casablanca) مهما كان توقيت الجهاز
+const MA_FMT = new Intl.DateTimeFormat("en-US", { timeZone: "Africa/Casablanca", hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+const moroccoParts = (ts) => {
+  const o = {};
+  MA_FMT.formatToParts(new Date(ts)).forEach((p) => { if (p.type !== "literal") o[p.type] = Number(p.value); });
+  return o;
+};
+const currentWeekKey = (ts = Date.now()) => {
+  const p = moroccoParts(ts), base = Date.UTC(p.year, p.month - 1, p.day), dow = new Date(base).getUTCDay();
+  let back = (dow + 1) % 7;
+  if (dow === 6 && p.hour < 21) back = 7;
+  const d = new Date(base - back * 864e5);
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+};
+// السرقات: كل أسبوع تحت المفتاح "w:YYYY-MM-DD". المفاتيح القديمة (تاريخ يوم) تبقى وتُحسب في المجموع الكلي.
+const STEAL_W = "w:";
+const sumObj = (o) => Object.values(o || {}).reduce((a, v) => a + (parseInt(v, 10) || 0), 0);
+const stealAll = (db) => Object.keys(db.stealing).reduce((s, k) => s + sumObj(db.stealing[k]), 0);
+const stealLife = (db, id) => Object.keys(db.stealing).reduce((s, k) => s + (parseInt((db.stealing[k] || {})[id], 10) || 0), 0);
+const stealWeek = (db, wk, id) => parseInt((db.stealing[STEAL_W + wk] || {})[id], 10) || 0;
 const fmt = (k, o) => parseKey(k).toLocaleDateString("ar-u-nu-latn", o);
 const fmtShort = (k) => fmt(k, { day: "numeric", month: "short" });
 const fmtFull = (k) => fmt(k, { day: "numeric", month: "long", year: "numeric" });
@@ -115,7 +135,7 @@ function emptyDb() {
   return { demo: false, users: [], members: [], activity: {}, stealing: {}, chests: [], warnings: [], events: [], attendance: {}, kicks: [], audit: [] };
 }
 function demoData() {
-  const t = todayKey(), w = weekStart(t), pw = addDays(w, -7);
+  const t = todayKey(), w = currentWeekKey(), pw = addDays(w, -7);
   const base = [
     ["ذئب الصحراء", "48213907", "نائب"],
     ["الفهد الأسود", "39157264", "نائب"],
@@ -140,12 +160,12 @@ function demoData() {
     }
   });
   const stealing = {};
-  for (let d = 0; d <= 13; d++) {
-    const k = addDays(t, -d);
+  for (let wi = 0; wi <= 3; wi++) {
+    const k = STEAL_W + addDays(w, -7 * wi);
     stealing[k] = {};
     members.forEach((m, i) => {
       if (i < 10) {
-        const v = (i * 3 + d * 2 + 1) % 7;
+        const v = (i * 3 + wi * 5 + 1) % 9;
         if (v > 0) stealing[k][m.id] = v;
       }
     });
@@ -216,7 +236,7 @@ function ConfirmBtn({ onConfirm, label, icon = "Trash2", ...p }) {
     const t = setTimeout(() => setArmed(false), 3500);
     return () => clearTimeout(t);
   }, [armed]);
-  return /* @__PURE__ */ React.createElement(Btn, { kind: "danger", icon: armed ? "AlertTriangle" : icon, onClick: () => armed ? onConfirm() : setArmed(true), ...p }, armed ? "اضغط مرة أخرى للتأكيد" : label);
+  return /* @__PURE__ */ React.createElement(Btn, { kind: "danger", icon: armed ? "AlertTriangle" : icon, onClick: () => { if (armed) { setArmed(false); onConfirm(); } else setArmed(true); }, ...p }, armed ? "اضغط مرة أخرى للتأكيد" : label);
 }
 function IdText({ id }) {
   return validId(id) ? /* @__PURE__ */ React.createElement("span", { className: "mono" }, norm(id)) : /* @__PURE__ */ React.createElement(Badge, { tone: "danger", icon: "AlertTriangle" }, "معرّف تالف");
@@ -230,8 +250,8 @@ function DayNav({ day, setDay }) {
   return /* @__PURE__ */ React.createElement("div", { className: "daynav" }, /* @__PURE__ */ React.createElement("button", { type: "button", className: "icon-btn", "aria-label": "اليوم السابق", onClick: () => setDay(addDays(day, -1)) }, /* @__PURE__ */ React.createElement(Icon, { n: "ChevronRight" })), /* @__PURE__ */ React.createElement("div", { className: "daynav-mid" }, /* @__PURE__ */ React.createElement("strong", null, day === t ? "اليوم" : fmt(day, { weekday: "long" })), /* @__PURE__ */ React.createElement("span", null, fmtFull(day))), /* @__PURE__ */ React.createElement("button", { type: "button", className: "icon-btn", "aria-label": "اليوم التالي", disabled: day >= t, onClick: () => setDay(addDays(day, 1)) }, /* @__PURE__ */ React.createElement(Icon, { n: "ChevronLeft" })));
 }
 function WeekNav({ wk, setWk }) {
-  const cur = weekStart(todayKey());
-  return /* @__PURE__ */ React.createElement("div", { className: "daynav" }, /* @__PURE__ */ React.createElement("button", { type: "button", className: "icon-btn", "aria-label": "الأسبوع السابق", onClick: () => setWk(addDays(wk, -7)) }, /* @__PURE__ */ React.createElement(Icon, { n: "ChevronRight" })), /* @__PURE__ */ React.createElement("div", { className: "daynav-mid" }, /* @__PURE__ */ React.createElement("strong", null, wk === cur ? "الأسبوع الحالي" : "أسبوع سابق"), /* @__PURE__ */ React.createElement("span", null, fmtShort(wk), " – ", fmtShort(addDays(wk, 6)))), /* @__PURE__ */ React.createElement("button", { type: "button", className: "icon-btn", "aria-label": "الأسبوع التالي", disabled: wk >= cur, onClick: () => setWk(addDays(wk, 7)) }, /* @__PURE__ */ React.createElement(Icon, { n: "ChevronLeft" })));
+  const cur = currentWeekKey();
+  return /* @__PURE__ */ React.createElement("div", { className: "daynav" }, /* @__PURE__ */ React.createElement("button", { type: "button", className: "icon-btn", "aria-label": "الأسبوع السابق", onClick: () => setWk(addDays(wk, -7)) }, /* @__PURE__ */ React.createElement(Icon, { n: "ChevronRight" })), /* @__PURE__ */ React.createElement("div", { className: "daynav-mid" }, /* @__PURE__ */ React.createElement("strong", null, wk === cur ? "الأسبوع الحالي" : "أسبوع سابق"), /* @__PURE__ */ React.createElement("span", null, fmtShort(wk), " 21:00 – ", fmtShort(addDays(wk, 7)), " 21:00")), /* @__PURE__ */ React.createElement("button", { type: "button", className: "icon-btn", "aria-label": "الأسبوع التالي", disabled: wk >= cur, onClick: () => setWk(addDays(wk, 7)) }, /* @__PURE__ */ React.createElement(Icon, { n: "ChevronLeft" })));
 }
 function SaveBar({ count, onSave, onCancel, label }) {
   const shown = count > 0;
@@ -260,6 +280,8 @@ function useDraft(src, key) {
   return { d, val, set, dirty, reset: () => setD({}) };
 }
 // Splash cinematic: tornado -> collapse -> flash -> logo reveal -> wordmark -> open. Awqat b ms (7ewlha hna).
+// مظهر الدخول: عدّل هذه الأرقام فقط. intensity = كثافة الدخان والإضاءة، grain = حبيبات الفيلم، push = اقتراب الكاميرا
+const SPLASH_LOOK = { intensity: 1, grain: .09, push: .10 };
 const SPL = { storm: 150, collapse: 2200, reveal: 3000, word: 3800, open: 4900, done: 7700 };
 function Splash({ onDone }) {
   const [phase, setPhase] = useState(0);
@@ -284,9 +306,9 @@ function Splash({ onDone }) {
     if (!c) return;
     const ctx = c.getContext("2d");
     const t0 = performance.now();
-    let raf, W = 0, H = 0, dpr = 1, last = t0;
+    let raf, W = 0, H = 0, dpr = 1, last = t0, qs = 1, lowQ = 0, avgMs = 16, fr = 0;
     const resize = () => {
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      dpr = Math.min(window.devicePixelRatio || 1, 1.25) * qs;
       W = window.innerWidth;
       H = window.innerHeight;
       c.width = Math.round(W * dpr);
@@ -304,6 +326,7 @@ function Splash({ onDone }) {
       g.fillRect(0, 0, 64, 64);
       return k;
     };
+    const LOOK = SPLASH_LOOK;
     const puff = (rgb, a0) => {
       const k = document.createElement("canvas");
       k.width = k.height = 96;
@@ -343,23 +366,24 @@ function Splash({ onDone }) {
       g.fillRect(0, 0, 512, 512);
       return k;
     })();
-    const N = Math.max(360, Math.min(620, Math.round(W * H / 620)));
+    const N = Math.max(300, Math.min(460, Math.round(W * H / 760)));
     const P = Array.from({ length: N }, () => {
       const q = Math.random(), kind = q < .56 ? 0 : q < .84 ? 1 : q < .96 ? 2 : 3;
       return {
-        t: Math.random(), th: Math.random() * 6.283, r0: .7 + Math.random() * .6, vy: .05 + Math.random() * .1, w: .75 + Math.random() * .5,
+        t: Math.random(), th: Math.random() * 6.283, r0: kind === 1 ? .22 + Math.random() * .5 : .7 + Math.random() * .6, vy: .05 + Math.random() * .1, w: .75 + Math.random() * .5,
         kind, pi: Math.floor(Math.random() * 4), rot: Math.random() * 6.283, rs: (Math.random() - .5) * 1.2,
         sz: kind === 0 ? 46 + Math.random() * 60 : kind === 1 ? 40 + Math.random() * 44 : 3 + Math.random() * 5,
         a0: kind === 0 ? .6 : kind === 1 ? .66 : .9, ba: Math.random() * 6.283, bs: 80 + Math.random() * 380,
         x: 0, y: 0, a: 0, s: 0, f: false
       };
     });
-    const SK = Array.from({ length: 52 }, () => ({ th: Math.random() * 6.283, rr: .1 + Math.random() * .42, sz: 80 + Math.random() * 90, w: .5 + Math.random() * .6, pi: Math.floor(Math.random() * 4) }));
-    const DB = Array.from({ length: 48 }, () => ({ t: .03 + Math.random() * .7, th: Math.random() * 6.283, r0: .85 + Math.random() * .5, w: 1.1 + Math.random() * .9, sz: 1.2 + Math.random() * 2.2, rot: Math.random() * 6.283, rs: (Math.random() - .5) * 14, px: 0, py: 0 }));
-    const SR = Array.from({ length: 14 }, () => ({ t0: .05 + Math.random() * .55, th0: Math.random() * 6.283, len: .12 + Math.random() * .16, r0: .9 + Math.random() * .3, w: 1 + Math.random() * .6 }));
+    const SK = Array.from({ length: 40 }, () => ({ th: Math.random() * 6.283, rr: .1 + Math.random() * .42, sz: 80 + Math.random() * 90, w: .5 + Math.random() * .6, pi: Math.floor(Math.random() * 4) }));
+    const DB = Array.from({ length: 36 }, () => ({ t: .03 + Math.random() * .7, th: Math.random() * 6.283, r0: .85 + Math.random() * .5, w: 1.1 + Math.random() * .9, sz: 1.2 + Math.random() * 2.2, rot: Math.random() * 6.283, rs: (Math.random() - .5) * 14, px: 0, py: 0 }));
+    const SR = Array.from({ length: 10 }, () => ({ t0: .05 + Math.random() * .55, th0: Math.random() * 6.283, len: .12 + Math.random() * .16, r0: .9 + Math.random() * .3, w: 1 + Math.random() * .6 }));
     const AE = Array.from({ length: 34 }, () => ({ x: Math.random(), y: Math.random(), v: .25 + Math.random() * .6, ph: Math.random() * 6.283, r: 3 + Math.random() * 5 }));
+    const FG = Array.from({ length: 5 }, () => ({ x: Math.random() * 1.3, y: .1 + Math.random() * .8, v: .25 + Math.random() * .5, s: 170 + Math.random() * 190, pi: Math.floor(Math.random() * 4), a: .08 + Math.random() * .1 }));
     const BT = [900, 1500, 2050];
-    let boltIdx = -1, bolt = null;
+    let boltIdx = -1, bolt = null, sim = 0;
     const mkBolt = (cx, baseY) => {
       const sx = cx + (Math.random() - .5) * W * .6, ex = cx + (Math.random() - .5) * W * .35, ey = baseY * .85, n = 9, pts = [];
       for (let i = 0; i <= n; i++) {
@@ -368,7 +392,7 @@ function Splash({ onDone }) {
       }
       const o = pts[4], br = [o];
       for (let i = 1; i <= 4; i++) br.push([o[0] + i * (Math.random() - .3) * W * .06, o[1] + i * H * .05]);
-      return { pts, br };
+      return { pts, br, ex };
     };
     const strokeBolt = (pts) => {
       ctx.beginPath();
@@ -376,8 +400,22 @@ function Splash({ onDone }) {
       ctx.stroke();
     };
     const tick = (now) => {
-      const e = now - t0, dt = Math.min(.034, (now - last) / 1000);
+      const e = now - t0, rawMs = now - last, dt = Math.min(.034, rawMs / 1000);
       last = now;
+      // جودة تتكيّف تلقائياً: إن كان الجهاز بطيئاً تنخفض الدقة والتفاصيل بدل أن يتقطّع الدخول
+      avgMs = avgMs * .9 + rawMs * .1;
+      fr++;
+      if (fr > 24 && lowQ < 2 && avgMs > (lowQ ? 42 : 30)) { lowQ++; qs = lowQ === 1 ? .75 : .55; resize(); fr = 0; avgMs = 16; }
+      // زمن سينمائي: بداية بطيئة، لحظة slow-motion قبل الانهيار، ثم تسارع سريع نحو الوميض
+      let tsv = 1;
+      if (e < 1200) tsv = .6 + .4 * (e / 1200);
+      else {
+        const k = e - (SPL.collapse - 400);
+        if (k > 0 && k < 900) tsv = 1 - .6 * Math.sin(Math.PI * k / 900);
+        else if (e >= SPL.collapse + 500) tsv = 1.5;
+      }
+      const dtm = dt * tsv;
+      sim += dtm * 1000;
       const u = clamp(W / 390, .8, 1.6);
       const baseY = H * .74, topY = H * .10, Hf = baseY - topY, cx = W / 2, ly = H / 2 - 58;
       const Rmax = W * .46, Rmin = W * .02;
@@ -387,7 +425,17 @@ function Splash({ onDone }) {
       const jolt = e > SPL.reveal && e < SPL.reveal + 500 ? 12 * (1 - (e - SPL.reveal) / 500) : 0;
       const sh = g * (1 - cl) * 1.4 + c3 * 5 + jolt;
       const ox = (Math.random() - .5) * 2 * sh, oy = (Math.random() - .5) * 2 * sh;
-      const base = () => ctx.setTransform(dpr, 0, 0, dpr, ox * dpr, oy * dpr);
+      const pk = clamp(e / SPL.reveal), camS = 1 + LOOK.push * pk * pk * (3 - 2 * pk);
+      const sFar = 1 + (camS - 1) * .35, sNear = 1 + (camS - 1) * 2.4;
+      const camX = Math.sin(sim * .0009) * 3 * g, camY = Math.cos(sim * .0007) * 2 * g;
+      let curS = 1;
+      const tx = () => cx * (1 - curS) + ox + camX, ty = () => ly * (1 - curS) + oy + camY;
+      const base = () => ctx.setTransform(dpr * curS, 0, 0, dpr * curS, tx() * dpr, ty() * dpr);
+      const setCam = (sc) => { curS = sc; base(); };
+      const setRot = (x, y, rot) => {
+        const cs = Math.cos(rot) * curS, sn = Math.sin(rot) * curS;
+        ctx.setTransform(dpr * cs, dpr * sn, -dpr * sn, dpr * cs, (curS * x + tx()) * dpr, (curS * y + ty()) * dpr);
+      };
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, c.width, c.height);
       base();
@@ -399,22 +447,24 @@ function Splash({ onDone }) {
           if (k < 70 || k > 100 && k < 200) lit = 1;
         }
       }
-      if (lit) { ctx.fillStyle = "rgba(170,190,255,.14)"; ctx.fillRect(-20, -20, W + 40, H + 40); }
       const putPuff = (img, x, y, s, rot, alpha, sq) => {
-        const cs = Math.cos(rot), sn = Math.sin(rot), hh = s * (sq || 1);
+        const hh = s * (sq || 1);
         ctx.globalAlpha = alpha;
-        ctx.setTransform(dpr * cs, dpr * sn, -dpr * sn, dpr * cs, (x + ox) * dpr, (y + oy) * dpr);
+        setRot(x, y, rot);
         ctx.drawImage(img, -s / 2, -hh / 2, s, hh);
       };
       const fpos = (t, th, r0) => {
         const R0 = (Rmin + (Rmax - Rmin) * Math.pow(t, 1.8)) * r0;
         const R = R0 * (1 - c3 * .96);
-        const bend = (Math.sin(e * .0007 + t * 2.4) * .05 + Math.sin(e * .0013 - t * 5) * .022) * W * t;
+        const bend = (Math.sin(sim * .0007 + t * 2.4) * .06 + Math.sin(sim * .0013 - t * 5) * .024 + t * t * .035 * Math.sin(sim * .0004)) * W * t;
         const sn = Math.sin(th);
         let x = cx + bend * (1 - cl) + Math.cos(th) * R, y = baseY - t * Hf * g + sn * R * .2;
         if (cl > 0) { x += (cx - x) * c3; y += (ly - y) * c3; }
         return [x, y, sn, R0];
       };
+      // طبقة بعيدة: سحب (حركة أقل + نعومة)
+      setCam(sFar);
+      if (lit) { ctx.fillStyle = `rgba(170,190,255,${.14 * LOOK.intensity})`; ctx.fillRect(-W, -H, W * 3, H * 3); }
       const cloudFade = b > 0 ? Math.max(0, 1 - b / 1.2) : 1;
       if (g > 0 && cloudFade > 0) {
         const sz = W * 2.2;
@@ -422,20 +472,28 @@ function Splash({ onDone }) {
         ctx.translate(cx, topY + H * .03);
         ctx.scale(1, .42);
         ctx.globalAlpha = (.75 * g * (1 - c3 * .8) + lit * .25) * cloudFade;
-        ctx.rotate(e * .00014);
+        ctx.rotate(sim * .00014);
         ctx.drawImage(cloud, -sz / 2, -sz / 2, sz, sz);
-        ctx.rotate(-e * .00014 * 2.6);
+        ctx.rotate(-sim * .00014 * 2.6);
         ctx.globalAlpha *= .8;
         ctx.drawImage(cloud, -sz * .4, -sz * .4, sz * .8, sz * .8);
         ctx.restore();
         base();
         ctx.globalAlpha = 1;
       }
+      setCam(camS);
       if (lit && bolt) {
         ctx.lineJoin = "round";
         [[8, "rgba(150,180,255,.12)"], [3.5, "rgba(190,210,255,.38)"], [1.4, "rgba(255,255,255,.95)"]].forEach(([w, col]) => {
           ctx.lineWidth = w; ctx.strokeStyle = col; strokeBolt(bolt.pts); strokeBolt(bolt.br);
         });
+        const by = baseY * .8, rg = ctx.createRadialGradient(bolt.ex, by, 0, bolt.ex, by, W * .55);
+        rg.addColorStop(0, `rgba(190,210,255,${.28 * LOOK.intensity})`);
+        rg.addColorStop(1, "rgba(190,210,255,0)");
+        ctx.globalCompositeOperation = "lighter";
+        ctx.fillStyle = rg;
+        ctx.fillRect(bolt.ex - W * .55, by - W * .55, W * 1.1, W * 1.1);
+        ctx.globalCompositeOperation = "source-over";
       }
       if (g > 0 && b < 1) {
         const bg = ctx.createRadialGradient(cx, baseY, 0, cx, baseY, W * .5);
@@ -452,27 +510,31 @@ function Splash({ onDone }) {
         base();
         ctx.globalAlpha = 1;
       }
-      if (b < 1.5) {
+      if (b < 2.8) {
+        let pidx = 0;
         for (const p of P) {
-          p.t += p.vy * dt * (1 + cl * 3);
+          p.sk = lowQ >= 1 && (pidx % 3 === 0 || lowQ >= 2 && pidx % 2 === 0);
+          pidx++;
+          p.t += p.vy * dtm * (1 + cl * 3);
           if (p.t > 1) p.t -= 1;
-          p.rot += p.rs * dt;
+          p.rot += p.rs * dtm;
           const t = p.t, [x0, y0, sn, R0] = fpos(t, p.th, p.r0), front = (sn + 1) / 2;
-          p.th += 5.2 * p.w / (.22 + R0 / Rmax) * dt * (1 + cl * 2.5);
+          p.th += 5.2 * p.w / (.22 + R0 / Rmax) * dtm * (1 + cl * 2.5);
+          const lk = lit && bolt ? clamp(1 - Math.abs(x0 - bolt.ex) / (W * .55)) : 0;
           let x = x0, y = y0;
-          let a = p.a0 * g * (.45 + .55 * front) * clamp((1 - t) / .12) * clamp(t / .05);
-          a = p.kind >= 2 ? Math.min(1, a * (1 + cl * .7)) : Math.min(1, a * (1 - cl * .75) * (1 + lit * .22));
+          let a = p.a0 * g * (.45 + .55 * front) * clamp((1 - t) / .12) * clamp(t / .05) * LOOK.intensity;
+          a = p.kind >= 2 ? Math.min(1, a * (1 + cl * .7)) : Math.min(1, a * (1 - cl * .75) * (1 + lk * .8));
           let s = p.sz * u * (.6 + t * .9) * (1 - c3 * .5);
           if (b > 0) {
-            const eb = 1 - Math.exp(-b * 2.6);
+            const eb = 1 - Math.exp(-b * 2.6), em = p.kind >= 2;
             x = cx + Math.cos(p.ba) * p.bs * eb * u;
-            y = ly + Math.sin(p.ba) * p.bs * eb * u * .9;
-            a = p.a0 * Math.max(0, 1 - b / 1.3) * (p.kind >= 2 ? 1 : .5);
+            y = ly + Math.sin(p.ba) * p.bs * eb * u * .9 - (em ? b * b * 14 * u : 0);
+            a = p.a0 * Math.max(0, 1 - b / (em ? 2.6 : 1.3)) * (em ? 1 : .5);
             s *= 1 + b * .6;
           }
-          p.x = x; p.y = y; p.a = a; p.s = s; p.f = front >= .5;
+          p.x = x; p.y = y; p.a = a; p.s = s; p.f = front >= .5; p.lk = lk;
         }
-        for (const k of SK) k.th += 2.2 * k.w * dt * (1 + cl * 2);
+        for (const k of SK) k.th += 2.2 * k.w * dtm * (1 + cl * 2);
         const skirt = (front) => {
           if (b > 0) return;
           ctx.globalCompositeOperation = "source-over";
@@ -482,14 +544,15 @@ function Splash({ onDone }) {
             const R = k.rr * W * (1 - c3 * .96);
             let x = cx + Math.cos(k.th) * R, y = baseY + sn * R * .13;
             if (cl > 0) { x += (cx - x) * c3; y += (ly - y) * c3; }
-            putPuff(DUST[k.pi], x, y, k.sz * u * (1 - c3 * .5), 0, Math.min(1, .2 * g * (1 - c3) * (front ? 1 : .6) * (1 + lit * .25)), .62);
+            const rag = .85 + .15 * Math.sin(sim * .003 + k.th * 3);
+            putPuff(DUST[k.pi], x, y, k.sz * u * (1 - c3 * .5) * rag, 0, Math.min(1, .2 * g * (1 - c3) * (front ? 1 : .6) * (1 + lit * .25) * LOOK.intensity), .62);
           }
           base();
         };
         const pass = (front, add) => {
           ctx.globalCompositeOperation = add ? "lighter" : "source-over";
           for (const p of P) {
-            if (p.f !== front || p.kind >= 2 !== add || p.a < .01 || b > 0 && p.kind < 2) continue;
+            if (p.f !== front || p.kind >= 2 !== add || p.a < .01 || p.sk && p.kind < 2 || b > 0 && p.kind < 2) continue;
             if (add) {
               ctx.globalAlpha = p.a;
               ctx.drawImage(p.kind === 2 ? SPARK : EMBER, p.x - p.s / 2, p.y - p.s / 2, p.s, p.s);
@@ -497,13 +560,25 @@ function Splash({ onDone }) {
           }
           base();
         };
+        const rim = () => {
+          if (b > 0 || g < .05 || lowQ) return;
+          const a = (.05 + lit * .28) * g * (1 - c3) * LOOK.intensity;
+          ctx.globalCompositeOperation = "source-over";
+          ctx.lineJoin = "round";
+          [0, Math.PI].forEach((th) => {
+            ctx.beginPath();
+            for (let j = 0; j <= 20; j++) { const [x, y] = fpos(j / 20, th, 1.04); j ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+            ctx.strokeStyle = `rgba(170,200,255,${a * .5})`; ctx.lineWidth = 6; ctx.stroke();
+            ctx.strokeStyle = `rgba(210,226,255,${a})`; ctx.lineWidth = 1.2; ctx.stroke();
+          });
+        };
         const debris = () => {
-          if (b > 0) return;
+          if (b > 0 || lowQ) return;
           ctx.globalCompositeOperation = "source-over";
           for (const d of DB) {
             const [x, y, sn, R0] = fpos(d.t, d.th, d.r0), al = (.5 + .4 * (sn + 1) / 2) * g * (1 - c3);
-            d.th += 7 * d.w / (.22 + R0 / Rmax) * dt * (1 + cl * 2.5);
-            d.rot += d.rs * dt;
+            d.th += 7 * d.w / (.22 + R0 / Rmax) * dtm * (1 + cl * 2.5);
+            d.rot += d.rs * dtm;
             if (d.px && Math.abs(d.px - x) < 90) {
               ctx.strokeStyle = `rgba(150,156,168,${.2 * al})`;
               ctx.lineWidth = d.sz * .5;
@@ -511,18 +586,17 @@ function Splash({ onDone }) {
             }
             d.px = x; d.py = y;
             ctx.fillStyle = lit ? `rgba(176,186,206,${al})` : `rgba(78,82,92,${al})`;
-            const cs = Math.cos(d.rot), sn2 = Math.sin(d.rot);
-            ctx.setTransform(dpr * cs, dpr * sn2, -dpr * sn2, dpr * cs, (x + ox) * dpr, (y + oy) * dpr);
+            setRot(x, y, d.rot);
             ctx.fillRect(-d.sz, -d.sz * .45, d.sz * 2, d.sz * .9);
           }
           base();
         };
         const streaks = () => {
-          if (b > 0) return;
+          if (b > 0 || lowQ) return;
           ctx.globalCompositeOperation = "source-over";
           ctx.lineWidth = 1;
           for (const s of SR) {
-            s.th0 += 3.4 * s.w * dt * (1 + cl * 2.5);
+            s.th0 += 3.4 * s.w * dtm * (1 + cl * 2.5);
             ctx.beginPath();
             let started = false;
             for (let j = 0; j <= 10; j++) {
@@ -535,12 +609,25 @@ function Splash({ onDone }) {
           }
         };
         skirt(false);
-        pass(false, false); pass(false, true); pass(true, false); pass(true, true);
+        pass(false, false); pass(false, true);
+        rim();
+        pass(true, false); pass(true, true);
         debris();
         streaks();
         skirt(true);
         ctx.globalCompositeOperation = "source-over";
         ctx.globalAlpha = 1;
+      }
+      // طبقة قريبة: غبار وحطام كبير غير واضح (عمق الميدان) يعبر الكادر بسرعة
+      if (b < .1 && g > .3 && !lowQ) {
+        setCam(sNear);
+        ctx.globalCompositeOperation = "source-over";
+        for (const f of FG) {
+          f.x -= f.v * dtm * .55;
+          if (f.x < -.35) { f.x = 1.35; f.y = .1 + Math.random() * .8; }
+          putPuff(f.pi % 2 ? SOOT[f.pi % 3] : DUST[f.pi], f.x * W, f.y * H, f.s * u, 0, f.a * g * (1 - cl) * 1.2 * LOOK.intensity, 1);
+        }
+        setCam(camS);
       }
       const gk = b > 0 ? Math.max(0, 1 - b / .9) : c3;
       if (gk > .01) {
@@ -591,12 +678,16 @@ function Splash({ onDone }) {
           ["S", "O", "A"].map((ch, i) => h("span", { key: i, className: "splash-ch gold-text", style: { "--i": i }, "aria-hidden": "true" }, ch))),
         h("div", { className: "splash-rule" }),
         h("div", { className: "splash-ar" }, "أبناء الفوضى"))));
-  return h("div", { className: `splash ${cls}`, "aria-label": "شاشة الدخول" },
+  return h("div", { className: `splash ${cls}`, "aria-label": "شاشة الدخول", style: { "--grain": SPLASH_LOOK.grain } },
     h("div", { className: "splash-light" }),
     h("div", { className: "splash-dustfall" }),
     layer("l"), layer("r"),
     h("canvas", { ref: cv }),
+    h("div", { className: "splash-grade" }),
     h("div", { className: "splash-flash" }),
+    h("div", { className: "splash-flash fr" }),
+    h("div", { className: "splash-flash fb" }),
+    h("div", { className: "splash-rays" }),
     h("div", { className: "splash-streak" }),
     h("div", { className: "splash-ring" }),
     h("div", { className: "splash-ring r2" }),
@@ -718,10 +809,10 @@ function MemberSheet({ id, onClose }) {
   const [cred, setCred] = useState(null);
   const m = db.members.find((x) => x.id === id);
   if (!m) return null;
-  const t = todayKey(), wk = weekStart(t);
+  const t = todayKey(), wk = currentWeekKey();
   const pts = db.activity[wk] ? db.activity[wk][m.id] : void 0;
   const low = pts !== void 0 && pts < THRESHOLD;
-  const steal = db.stealing[t] && db.stealing[t][m.id] || 0;
+  const steal = stealLife(db, m.id);
   const warns = db.warnings.filter((w) => w.memberId === m.id);
   const attRec = (db.attendance[t] || {})[m.id];
   const present = !!attRec;
@@ -837,11 +928,11 @@ function MemberSheet({ id, onClose }) {
   if (mode === "warn") return /* @__PURE__ */ React.createElement(Sheet, { title: "إصدار إنذار", onClose: () => setMode("view") }, /* @__PURE__ */ React.createElement(WarnForm, { member: m, onDone: () => setMode("view") }));
   if (mode === "edit") return /* @__PURE__ */ React.createElement(Sheet, { title: "تعديل العضو", onClose: () => setMode("view") }, /* @__PURE__ */ React.createElement("div", { className: "form" }, /* @__PURE__ */ React.createElement(Field, { label: "الاسم" }, /* @__PURE__ */ React.createElement("input", { id: "edit-name", className: "input", maxLength: 40, disabled: isL, value: form.name, onChange: (e) => setForm({ ...form, name: e.target.value }) })), /* @__PURE__ */ React.createElement(Field, { label: "معرّف WePlay" }, /* @__PURE__ */ React.createElement("input", { id: "edit-weid", className: "input mono", maxLength: 24, disabled: isL, autoComplete: "off", autoCapitalize: "off", spellCheck: false, value: form.weid, onChange: (e) => setForm({ ...form, weid: e.target.value }) })), /* @__PURE__ */ React.createElement(IdError, { value: form.weid }), dupMember ? /* @__PURE__ */ React.createElement("div", { className: "status-line bad" }, /* @__PURE__ */ React.createElement(Icon, { n: "AlertTriangle", size: 16 }), "هذا المعرّف مسجّل للعضو ", dupMember.name) : null, banned ? /* @__PURE__ */ React.createElement("div", { className: "status-line bad" }, /* @__PURE__ */ React.createElement(Icon, { n: "Ban", size: 16 }), "هذا المعرّف موجود في قائمة الطرد") : null, /* @__PURE__ */ React.createElement(Field, { label: "الرتبة" }, /* @__PURE__ */ React.createElement("select", { id: "edit-rank", className: "input", disabled: isL, value: form.rank, onChange: (e) => setForm({ ...form, rank: e.target.value }) }, (isL ? [LEADER_RANK] : RANKS).map((r) => /* @__PURE__ */ React.createElement("option", { key: r }, r)))), /* @__PURE__ */ React.createElement(Field, { label: "تاريخ الانضمام" }, /* @__PURE__ */ React.createElement("input", { id: "edit-joined", type: "date", className: "input", value: form.joined, onChange: (e) => setForm({ ...form, joined: e.target.value }) })), /* @__PURE__ */ React.createElement(Btn, { kind: "gold", icon: "Check", className: "btn-block", disabled: !form.name.trim() || !validId(form.weid) || !!dupMember || !!banned, onClick: saveEdit }, "حفظ")));
   if (mode === "kick") return /* @__PURE__ */ React.createElement(Sheet, { title: "طرد العضو", onClose: () => setMode("view") }, /* @__PURE__ */ React.createElement("div", { className: "form" }, /* @__PURE__ */ React.createElement("div", { className: "note warn" }, /* @__PURE__ */ React.createElement(Icon, { n: "UserX", size: 20 }), /* @__PURE__ */ React.createElement("div", null, "سيُحذف ", m.name, " من القائمة ويُضاف معرّفه إلى قائمة الطرد، فلا يمكن تسجيله من جديد.")), /* @__PURE__ */ React.createElement(Field, { label: "سبب الطرد" }, /* @__PURE__ */ React.createElement("textarea", { id: "kick-reason", className: "input", value: kickReason, onChange: (e) => setKickReason(e.target.value), placeholder: "مثال: غياب طويل بلا عذر" })), !validId(m.weid) ? /* @__PURE__ */ React.createElement("div", { className: "status-line bad" }, /* @__PURE__ */ React.createElement(Icon, { n: "AlertTriangle", size: 16 }), "معرّف هذا العضو تالف فلا يمكن حظره. عدّل المعرّف أولاً، أو احذف التسجيل إن كان خطأ إدخال.") : null, /* @__PURE__ */ React.createElement(Btn, { kind: "danger", icon: "UserX", className: "btn-block", disabled: !validId(m.weid), onClick: kick }, "تأكيد الطرد")));
-  return /* @__PURE__ */ React.createElement(Sheet, { title: "بطاقة العضو", onClose }, /* @__PURE__ */ React.createElement("div", { className: "row" }, /* @__PURE__ */ React.createElement("div", { className: "avatar", style: { width: 54, height: 54, fontSize: 24 } }, initial(m.name)), /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: 18 } }, m.name), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap gap-1.5 mt-1" }, /* @__PURE__ */ React.createElement(Badge, { tone: "gold", icon: isL ? "Crown" : void 0 }, m.rank), acct && !isL ? /* @__PURE__ */ React.createElement(Badge, { tone: "mute", icon: "Shield" }, ROLES[acct.role] ? ROLES[acct.role].label : "حساب") : null, m.fake ? /* @__PURE__ */ React.createElement(Badge, { tone: "fake", icon: "UserX" }, "حساب وهمي") : null, low ? /* @__PURE__ */ React.createElement(Badge, { tone: "danger", icon: "AlertTriangle" }, "تحذير") : null, pts !== void 0 && !low && !m.fake ? /* @__PURE__ */ React.createElement(Badge, { tone: "ok", icon: "Check" }, "نشط") : null))), /* @__PURE__ */ React.createElement("div", { className: "card", style: { paddingBlock: 4 } }, /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "معرّف WePlay"), /* @__PURE__ */ React.createElement("span", { className: "row" }, /* @__PURE__ */ React.createElement(IdText, { id: m.weid }), validId(m.weid) ? /* @__PURE__ */ React.createElement("button", { type: "button", className: "icon-btn", style: { width: 32, height: 32 }, "aria-label": "نسخ المعرّف", onClick: () => copyText(m.weid, notify) }, /* @__PURE__ */ React.createElement(Icon, { n: "Copy", size: 16 })) : null)), /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "تاريخ الانضمام"), /* @__PURE__ */ React.createElement("span", null, fmtFull(m.joined))), /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "نشاط هذا الأسبوع"), /* @__PURE__ */ React.createElement("span", { className: `mono ${low ? "t-danger" : ""}` }, pts === void 0 ? "لم يُسجَّل" : nf(pts))), /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "فرص السرقات اليوم"), /* @__PURE__ */ React.createElement("span", { className: "mono" }, steal)), /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "الحضور اليوم"), /* @__PURE__ */ React.createElement("span", null, !attRec ? "لم يُسجَّل" : attRec.out ? `انصرف ${fmtTime(attRec.out)}` : `حاضر${attRec.in ? " منذ " + fmtTime(attRec.in) : ""}`)), /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "الإنذارات"), /* @__PURE__ */ React.createElement("span", { className: warns.length ? "t-danger" : "" }, warns.length))), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-2" }, !isL ? /* @__PURE__ */ React.createElement(Btn, { kind: "danger", icon: "ShieldAlert", onClick: () => setMode("warn") }, "إصدار إنذار") : null, /* @__PURE__ */ React.createElement(Btn, { icon: present ? "RotateCcw" : "UserCheck", onClick: togglePresent }, present ? "إلغاء الحضور" : "تسجيل حضور"), canEdit ? /* @__PURE__ */ React.createElement(Btn, { icon: "Pencil", onClick: startEdit }, "تعديل البيانات") : null, canAdmin ? /* @__PURE__ */ React.createElement(Btn, { icon: "ShieldCheck", onClick: openRank }, "الرتبة والصلاحية") : null, canEdit && !isL ? /* @__PURE__ */ React.createElement(Btn, { icon: "UserX", onClick: toggleFake }, m.fake ? "إزالة وسم الوهمي" : "وسم حساب وهمي") : null, canEdit && !isL ? /* @__PURE__ */ React.createElement(Btn, { kind: "danger", icon: "Ban", className: "btn-block", style: { gridColumn: "1 / -1" }, onClick: () => setMode("kick") }, "طرد العضو") : null, canEdit && !isL ? /* @__PURE__ */ React.createElement(ConfirmBtn, { icon: "Trash2", label: "حذف التسجيل (خطأ إدخال)", className: "btn-block", style: { gridColumn: "1 / -1" }, onConfirm: remove }) : null), warns.length ? /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h3", { className: "h-sec", style: { fontSize: 15, marginBottom: 6 } }, "سجل الإنذارات"), /* @__PURE__ */ React.createElement("div", { className: "card card-flush divide" }, warns.slice(0, 5).map((w) => /* @__PURE__ */ React.createElement("div", { key: w.id, className: "list-row" }, /* @__PURE__ */ React.createElement("div", { className: "lr-main" }, /* @__PURE__ */ React.createElement("div", { className: "lr-name", style: { whiteSpace: "normal" } }, w.reason), /* @__PURE__ */ React.createElement("div", { className: "lr-sub" }, fmtFull(w.date), " · بواسطة ", w.by)))))) : null);
+  return /* @__PURE__ */ React.createElement(Sheet, { title: "بطاقة العضو", onClose }, /* @__PURE__ */ React.createElement("div", { className: "row" }, /* @__PURE__ */ React.createElement("div", { className: "avatar", style: { width: 54, height: 54, fontSize: 24 } }, initial(m.name)), /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: 18 } }, m.name), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap gap-1.5 mt-1" }, /* @__PURE__ */ React.createElement(Badge, { tone: "gold", icon: isL ? "Crown" : void 0 }, m.rank), acct && !isL ? /* @__PURE__ */ React.createElement(Badge, { tone: "mute", icon: "Shield" }, ROLES[acct.role] ? ROLES[acct.role].label : "حساب") : null, m.fake ? /* @__PURE__ */ React.createElement(Badge, { tone: "fake", icon: "UserX" }, "حساب وهمي") : null, low ? /* @__PURE__ */ React.createElement(Badge, { tone: "danger", icon: "AlertTriangle" }, "تحذير") : null, pts !== void 0 && !low && !m.fake ? /* @__PURE__ */ React.createElement(Badge, { tone: "ok", icon: "Check" }, "نشط") : null))), /* @__PURE__ */ React.createElement("div", { className: "card", style: { paddingBlock: 4 } }, /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "معرّف WePlay"), /* @__PURE__ */ React.createElement("span", { className: "row" }, /* @__PURE__ */ React.createElement(IdText, { id: m.weid }), validId(m.weid) ? /* @__PURE__ */ React.createElement("button", { type: "button", className: "icon-btn", style: { width: 32, height: 32 }, "aria-label": "نسخ المعرّف", onClick: () => copyText(m.weid, notify) }, /* @__PURE__ */ React.createElement(Icon, { n: "Copy", size: 16 })) : null)), /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "تاريخ الانضمام"), /* @__PURE__ */ React.createElement("span", null, fmtFull(m.joined))), /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "نشاط هذا الأسبوع"), /* @__PURE__ */ React.createElement("span", { className: `mono ${low ? "t-danger" : ""}` }, pts === void 0 ? "لم يُسجَّل" : nf(pts))), /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "سرقات هذا الأسبوع"), /* @__PURE__ */ React.createElement("span", { className: "mono" }, stealWeek(db, wk, m.id))), /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "إجمالي السرقات (لا يُمسح)"), /* @__PURE__ */ React.createElement("span", { className: "mono" }, steal)), /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "الحضور اليوم"), /* @__PURE__ */ React.createElement("span", null, !attRec ? "لم يُسجَّل" : attRec.out ? `انصرف ${fmtTime(attRec.out)}` : `حاضر${attRec.in ? " منذ " + fmtTime(attRec.in) : ""}`)), /* @__PURE__ */ React.createElement("div", { className: "kv" }, /* @__PURE__ */ React.createElement("span", null, "الإنذارات"), /* @__PURE__ */ React.createElement("span", { className: warns.length ? "t-danger" : "" }, warns.length))), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-2" }, !isL ? /* @__PURE__ */ React.createElement(Btn, { kind: "danger", icon: "ShieldAlert", onClick: () => setMode("warn") }, "إصدار إنذار") : null, /* @__PURE__ */ React.createElement(Btn, { icon: present ? "RotateCcw" : "UserCheck", onClick: togglePresent }, present ? "إلغاء الحضور" : "تسجيل حضور"), canEdit ? /* @__PURE__ */ React.createElement(Btn, { icon: "Pencil", onClick: startEdit }, "تعديل البيانات") : null, canAdmin ? /* @__PURE__ */ React.createElement(Btn, { icon: "ShieldCheck", onClick: openRank }, "الرتبة والصلاحية") : null, canEdit && !isL ? /* @__PURE__ */ React.createElement(Btn, { icon: "UserX", onClick: toggleFake }, m.fake ? "إزالة وسم الوهمي" : "وسم حساب وهمي") : null, canEdit && !isL ? /* @__PURE__ */ React.createElement(Btn, { kind: "danger", icon: "Ban", className: "btn-block", style: { gridColumn: "1 / -1" }, onClick: () => setMode("kick") }, "طرد العضو") : null, canEdit && !isL ? /* @__PURE__ */ React.createElement(ConfirmBtn, { icon: "Trash2", label: "حذف التسجيل (خطأ إدخال)", className: "btn-block", style: { gridColumn: "1 / -1" }, onConfirm: remove }) : null), warns.length ? /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h3", { className: "h-sec", style: { fontSize: 15, marginBottom: 6 } }, "سجل الإنذارات"), /* @__PURE__ */ React.createElement("div", { className: "card card-flush divide" }, warns.slice(0, 5).map((w) => /* @__PURE__ */ React.createElement("div", { key: w.id, className: "list-row" }, /* @__PURE__ */ React.createElement("div", { className: "lr-main" }, /* @__PURE__ */ React.createElement("div", { className: "lr-name", style: { whiteSpace: "normal" } }, w.reason), /* @__PURE__ */ React.createElement("div", { className: "lr-sub" }, fmtFull(w.date), " · بواسطة ", w.by)))))) : null);
 }
 function Home({ openMember, go }) {
   const { db, me, mutate, notify } = useApp();
-  const t = todayKey(), wk = weekStart(t);
+  const t = todayKey(), wk = currentWeekKey();
   const [q, setQ] = useState("");
   const [f, setF] = useState("all");
   const [sortBy, setSortBy] = useState("rank");
@@ -854,7 +945,7 @@ function Home({ openMember, go }) {
   }, [db.warnings]);
   const rows = db.members.map((m) => {
     const p = db.activity[wk] ? db.activity[wk][m.id] : void 0;
-    return { m, pts: p === void 0 ? null : p, steal: db.stealing[t] && db.stealing[t][m.id] || 0, warns: warnCount[m.id] || 0 };
+    return { m, pts: p === void 0 ? null : p, steal: stealLife(db, m.id), warns: warnCount[m.id] || 0 };
   }).sort((x, y) => rankIdx(x.m.rank) - rankIdx(y.m.rank));
   const rankSort = (x, y) => rankIdx(x.m.rank) - rankIdx(y.m.rank);
   const actSort = (dir) => (x, y) => {
@@ -870,7 +961,7 @@ function Home({ openMember, go }) {
   const shown = ordered.filter((r) => matchQ(r.m, q) && (ff === "all" || ff === "staff" && r.m.rank !== "عضو" || ff === "active" && r.pts !== null && !low(r) && !r.m.fake || ff === "warn" && low(r) || ff === "fake" && r.m.fake || ff === "bad" && !validId(r.m.weid)));
   const recorded = rows.filter((r) => r.pts !== null);
   const avg = recorded.length ? Math.round(recorded.reduce((s, r) => s + r.pts, 0) / recorded.length) : 0;
-  const stealToday = rows.reduce((s, r) => s + r.steal, 0);
+  const stealToday = sumObj(db.stealing[STEAL_W + wk]);
   const chestsWeek = db.chests.filter((c) => c.date >= wk).length;
   const clearDemo = () => {
     mutate((n) => {
@@ -887,63 +978,65 @@ function Home({ openMember, go }) {
     notify("تم مسح البيانات التجريبية، ابدأ بتسجيل الأعضاء");
   };
   const [askClear, setAskClear] = useState(false);
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, db.demo ? /* @__PURE__ */ React.createElement("div", { className: "note gold" }, /* @__PURE__ */ React.createElement(Icon, { n: "Info", size: 20 }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, "بيانات تجريبية للمعاينة. ", can.leader(me.role) ? "امسحها عند البدء بالبيانات الفعلية." : "يمسحها الرئيس عند البدء.", can.leader(me.role) ? /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, askClear ? /* @__PURE__ */ React.createElement("div", { className: "row" }, /* @__PURE__ */ React.createElement(Btn, { kind: "danger", className: "btn-sm", icon: "Trash2", onClick: clearDemo }, "تأكيد المسح"), /* @__PURE__ */ React.createElement(Btn, { className: "btn-sm", onClick: () => setAskClear(false) }, "إلغاء")) : /* @__PURE__ */ React.createElement(Btn, { className: "btn-sm", icon: "Trash2", onClick: () => setAskClear(true) }, "مسح البيانات التجريبية")) : null)) : null, counts.bad && can.members(me.role) ? /* @__PURE__ */ React.createElement("div", { className: "note warn" }, /* @__PURE__ */ React.createElement(Icon, { n: "AlertTriangle", size: 20 }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, counts.bad, " ", counts.bad === 1 ? "عضو" : "أعضاء", " بمعرّف WePlay تالف (نص طويل أو رموز غير مسموحة). افتح بطاقة العضو ثم «تعديل البيانات» لتصحيح المعرّف، أو احذف التسجيل إن كان خطأ إدخال.", /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, /* @__PURE__ */ React.createElement(Btn, { className: "btn-sm", icon: "Search", onClick: () => setF("bad") }, "عرض التالفين")))) : null, /* @__PURE__ */ React.createElement("div", { className: "strip", "aria-label": "ملخص القبيلة" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, /* @__PURE__ */ React.createElement(CountUp, { value: counts.all, ms: 800, fmt: String })), /* @__PURE__ */ React.createElement("small", null, "عضو")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", { className: counts.warn ? "t-danger" : "" }, counts.warn), /* @__PURE__ */ React.createElement("small", null, "تحت ", THRESHOLD)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", { className: "t-gold" }, nf(stealToday)), /* @__PURE__ */ React.createElement("small", null, "سرقات اليوم")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, chestsWeek), /* @__PURE__ */ React.createElement("small", null, "صناديق الأسبوع"))), recorded.length ? /* @__PURE__ */ React.createElement("div", { className: "sub", style: { marginTop: -6 } }, "متوسط النشاط هذا الأسبوع: ", /* @__PURE__ */ React.createElement("b", { className: "mono t-gold" }, nf(avg))) : null, /* @__PURE__ */ React.createElement(SearchBox, { id: "member-search", value: q, onChange: setQ }), /* @__PURE__ */ React.createElement("div", { className: "chips", role: "group", "aria-label": "تصفية الأعضاء" }, [["all", "الكل"], ["staff", "الإدارة"], ["active", "نشط"], ["warn", "تحذير"], ["fake", "وهمي"], ...counts.bad ? [["bad", "معرّف تالف"]] : []].map(([k, l]) => /* @__PURE__ */ React.createElement("button", { type: "button", key: k, className: `chip ${ff === k ? "on" : ""}`, onClick: () => setF(k) }, l, " ", /* @__PURE__ */ React.createElement("b", null, counts[k])))), /* @__PURE__ */ React.createElement("div", { className: "chips sortbar", role: "group", "aria-label": "ترتيب القائمة" }, /* @__PURE__ */ React.createElement("span", { className: "sub", style: { display: "inline-flex", alignItems: "center", gap: 4, flex: "none" } }, /* @__PURE__ */ React.createElement(Icon, { n: "ArrowUpDown", size: 15 }), "الترتيب"), [["rank", "حسب الرتبة"], ["act_desc", "الأكثر نشاطاً"], ["act_asc", "الأقل نشاطاً"]].map(([k, l]) => /* @__PURE__ */ React.createElement("button", { type: "button", key: k, className: `chip ${sortBy === k ? "on" : ""}`, onClick: () => setSortBy(k) }, l))), shown.length === 0 ? db.members.length === 0 ? /* @__PURE__ */ React.createElement(Empty, { icon: "Users", title: "لا يوجد أعضاء بعد", text: can.members(me.role) ? "افتح «المزيد» ثم «تسجيل عضو جديد» لإضافة أول عضو." : "ينتظر شيخ القبول تسجيل الأعضاء." }) : /* @__PURE__ */ React.createElement(Empty, { icon: "Search", title: "لا نتائج مطابقة", text: "غيّر كلمة البحث أو التصفية." }) : shown.map((r) => {
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, db.demo ? /* @__PURE__ */ React.createElement("div", { className: "note gold" }, /* @__PURE__ */ React.createElement(Icon, { n: "Info", size: 20 }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, "بيانات تجريبية للمعاينة. ", can.leader(me.role) ? "امسحها عند البدء بالبيانات الفعلية." : "يمسحها الرئيس عند البدء.", can.leader(me.role) ? /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, askClear ? /* @__PURE__ */ React.createElement("div", { className: "row" }, /* @__PURE__ */ React.createElement(Btn, { kind: "danger", className: "btn-sm", icon: "Trash2", onClick: clearDemo }, "تأكيد المسح"), /* @__PURE__ */ React.createElement(Btn, { className: "btn-sm", onClick: () => setAskClear(false) }, "إلغاء")) : /* @__PURE__ */ React.createElement(Btn, { className: "btn-sm", icon: "Trash2", onClick: () => setAskClear(true) }, "مسح البيانات التجريبية")) : null)) : null, counts.bad && can.members(me.role) ? /* @__PURE__ */ React.createElement("div", { className: "note warn" }, /* @__PURE__ */ React.createElement(Icon, { n: "AlertTriangle", size: 20 }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, counts.bad, " ", counts.bad === 1 ? "عضو" : "أعضاء", " بمعرّف WePlay تالف (نص طويل أو رموز غير مسموحة). افتح بطاقة العضو ثم «تعديل البيانات» لتصحيح المعرّف، أو احذف التسجيل إن كان خطأ إدخال.", /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, /* @__PURE__ */ React.createElement(Btn, { className: "btn-sm", icon: "Search", onClick: () => setF("bad") }, "عرض التالفين")))) : null, /* @__PURE__ */ React.createElement("div", { className: "strip", "aria-label": "ملخص القبيلة" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, /* @__PURE__ */ React.createElement(CountUp, { value: counts.all, ms: 800, fmt: String })), /* @__PURE__ */ React.createElement("small", null, "عضو")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", { className: counts.warn ? "t-danger" : "" }, counts.warn), /* @__PURE__ */ React.createElement("small", null, "تحت ", THRESHOLD)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", { className: "t-gold" }, nf(stealToday)), /* @__PURE__ */ React.createElement("small", null, "سرقات الأسبوع")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, chestsWeek), /* @__PURE__ */ React.createElement("small", null, "صناديق الأسبوع"))), recorded.length ? /* @__PURE__ */ React.createElement("div", { className: "sub", style: { marginTop: -6 } }, "متوسط النشاط هذا الأسبوع: ", /* @__PURE__ */ React.createElement("b", { className: "mono t-gold" }, nf(avg))) : null, /* @__PURE__ */ React.createElement(SearchBox, { id: "member-search", value: q, onChange: setQ }), /* @__PURE__ */ React.createElement("div", { className: "chips", role: "group", "aria-label": "تصفية الأعضاء" }, [["all", "الكل"], ["staff", "الإدارة"], ["active", "نشط"], ["warn", "تحذير"], ["fake", "وهمي"], ...counts.bad ? [["bad", "معرّف تالف"]] : []].map(([k, l]) => /* @__PURE__ */ React.createElement("button", { type: "button", key: k, className: `chip ${ff === k ? "on" : ""}`, onClick: () => setF(k) }, l, " ", /* @__PURE__ */ React.createElement("b", null, counts[k])))), /* @__PURE__ */ React.createElement("div", { className: "chips sortbar", role: "group", "aria-label": "ترتيب القائمة" }, /* @__PURE__ */ React.createElement("span", { className: "sub", style: { display: "inline-flex", alignItems: "center", gap: 4, flex: "none" } }, /* @__PURE__ */ React.createElement(Icon, { n: "ArrowUpDown", size: 15 }), "الترتيب"), [["rank", "حسب الرتبة"], ["act_desc", "الأكثر نشاطاً"], ["act_asc", "الأقل نشاطاً"]].map(([k, l]) => /* @__PURE__ */ React.createElement("button", { type: "button", key: k, className: `chip ${sortBy === k ? "on" : ""}`, onClick: () => setSortBy(k) }, l))), shown.length === 0 ? db.members.length === 0 ? /* @__PURE__ */ React.createElement(Empty, { icon: "Users", title: "لا يوجد أعضاء بعد", text: can.members(me.role) ? "افتح «المزيد» ثم «تسجيل عضو جديد» لإضافة أول عضو." : "ينتظر شيخ القبول تسجيل الأعضاء." }) : /* @__PURE__ */ React.createElement(Empty, { icon: "Search", title: "لا نتائج مطابقة", text: "غيّر كلمة البحث أو التصفية." }) : shown.map((r) => {
     const isLow = low(r);
-    return /* @__PURE__ */ React.createElement("button", { type: "button", key: r.m.id, className: `mcard ${isLow ? "low" : ""}`, onClick: () => openMember(r.m.id) }, /* @__PURE__ */ React.createElement("div", { className: "row", style: { width: "100%" } }, /* @__PURE__ */ React.createElement("div", { className: "avatar" }, initial(r.m.name)), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { className: "mc-name" }, r.m.name), /* @__PURE__ */ React.createElement("div", { className: "mc-sub" }, /* @__PURE__ */ React.createElement("span", { className: r.m.leader ? "t-gold" : void 0 }, r.m.leader ? /* @__PURE__ */ React.createElement(Icon, { n: "Crown", size: 13 }) : null, r.m.leader ? " " : "", r.m.rank), /* @__PURE__ */ React.createElement("span", { className: "dot" }), /* @__PURE__ */ React.createElement(IdText, { id: r.m.weid }))), /* @__PURE__ */ React.createElement(Icon, { n: "ChevronLeft", size: 18, className: "t-mute" })), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap gap-1.5" }, r.pts === null ? /* @__PURE__ */ React.createElement(Badge, { tone: "mute" }, "لم يُسجَّل نشاط") : isLow ? /* @__PURE__ */ React.createElement(Badge, { tone: "danger", icon: "AlertTriangle" }, "تحذير") : r.m.fake ? null : /* @__PURE__ */ React.createElement(Badge, { tone: "ok", icon: "Check" }, "نشط"), r.m.fake ? /* @__PURE__ */ React.createElement(Badge, { tone: "fake", icon: "UserX" }, "حساب وهمي") : null, r.warns >= 3 ? /* @__PURE__ */ React.createElement(Badge, { tone: "danger", icon: "ShieldAlert" }, "إنذارات متكررة") : null), /* @__PURE__ */ React.createElement("div", { className: "mc-stats" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("small", null, "النشاط الأسبوعي"), /* @__PURE__ */ React.createElement("strong", { className: isLow ? "t-danger" : "" }, r.pts === null ? "—" : nf(r.pts))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("small", null, "فرص السرقات"), /* @__PURE__ */ React.createElement("strong", { className: "t-gold" }, r.steal)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("small", null, "الإنذارات"), /* @__PURE__ */ React.createElement("strong", { className: r.warns ? "t-danger" : "" }, r.warns))));
+    return /* @__PURE__ */ React.createElement("button", { type: "button", key: r.m.id, className: `mcard ${isLow ? "low" : ""}`, onClick: () => openMember(r.m.id) }, /* @__PURE__ */ React.createElement("div", { className: "row", style: { width: "100%" } }, /* @__PURE__ */ React.createElement("div", { className: "avatar" }, initial(r.m.name)), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { className: "mc-name" }, r.m.name), /* @__PURE__ */ React.createElement("div", { className: "mc-sub" }, /* @__PURE__ */ React.createElement("span", { className: r.m.leader ? "t-gold" : void 0 }, r.m.leader ? /* @__PURE__ */ React.createElement(Icon, { n: "Crown", size: 13 }) : null, r.m.leader ? " " : "", r.m.rank), /* @__PURE__ */ React.createElement("span", { className: "dot" }), /* @__PURE__ */ React.createElement(IdText, { id: r.m.weid }))), /* @__PURE__ */ React.createElement(Icon, { n: "ChevronLeft", size: 18, className: "t-mute" })), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap gap-1.5" }, r.pts === null ? /* @__PURE__ */ React.createElement(Badge, { tone: "mute" }, "لم يُسجَّل نشاط") : isLow ? /* @__PURE__ */ React.createElement(Badge, { tone: "danger", icon: "AlertTriangle" }, "تحذير") : r.m.fake ? null : /* @__PURE__ */ React.createElement(Badge, { tone: "ok", icon: "Check" }, "نشط"), r.m.fake ? /* @__PURE__ */ React.createElement(Badge, { tone: "fake", icon: "UserX" }, "حساب وهمي") : null, r.warns >= 3 ? /* @__PURE__ */ React.createElement(Badge, { tone: "danger", icon: "ShieldAlert" }, "إنذارات متكررة") : null), /* @__PURE__ */ React.createElement("div", { className: "mc-stats" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("small", null, "النشاط الأسبوعي"), /* @__PURE__ */ React.createElement("strong", { className: isLow ? "t-danger" : "" }, r.pts === null ? "—" : nf(r.pts))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("small", null, "السرقات (الكلي)"), /* @__PURE__ */ React.createElement("strong", { className: "t-gold" }, nf(r.steal))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("small", null, "الإنذارات"), /* @__PURE__ */ React.createElement("strong", { className: r.warns ? "t-danger" : "" }, r.warns))));
   }));
 }
 function Stealing() {
   const { db, me, mutate, notify } = useApp();
   const edit = can.steal(me.role);
-  const [day, setDay] = useState(todayKey());
+  const [wkSel, setWkSel] = useState(null);
   const [q, setQ] = useState("");
-  const dr = useDraft(db.stealing[day] || {}, day);
+  const cw = currentWeekKey();
+  const wk = wkSel || cw;
+  const setWk = (k) => setWkSel(k >= cw ? null : k);
+  const key = STEAL_W + wk;
+  const dr = useDraft(db.stealing[key] || {}, key);
   const members = db.members;
   const cnt = (id) => parseInt(dr.val(id), 10) || 0;
   const total = members.reduce((s, m) => s + cnt(m.id), 0);
-  const stored = (k) => members.reduce((a, m) => a + ((db.stealing[k] || {})[m.id] || 0), 0);
-  const dayT = (k) => k === day ? total : stored(k);
-  const wk = weekStart(day);
-  let weekTotal = 0;
-  for (let i = 0; i < 7; i++) weekTotal += dayT(addDays(wk, i));
-  const allTotal = Array.from(/* @__PURE__ */ new Set([...Object.keys(db.stealing), day])).reduce((s, k) => s + dayT(k), 0);
+  const storedWeek = (id) => parseInt((db.stealing[key] || {})[id], 10) || 0;
+  const life = (id) => stealLife(db, id) - storedWeek(id) + cnt(id);
+  const allTotal = stealAll(db) - members.reduce((s, m) => s + storedWeek(m.id), 0) + total;
+  const holders = members.filter((m) => life(m.id) > 0).length;
   const shown = members.filter((m) => matchQ(m, q));
+  const inWeek = (k) => k === key || !k.startsWith(STEAL_W) && weekStart(k) === wk;
   const save = () => {
     mutate((n) => {
-      n.stealing[day] = n.stealing[day] || {};
+      n.stealing[key] = n.stealing[key] || {};
       dr.dirty.forEach((id) => {
         const v = parseInt(dr.d[id], 10);
-        if (!v || v <= 0) delete n.stealing[day][id];
-        else n.stealing[day][id] = v;
+        if (!v || v <= 0) delete n.stealing[key][id];
+        else n.stealing[key][id] = v;
       });
-    }, `حفظ فرص السرقات ليوم ${fmtShort(day)} (الإجمالي ${total})`);
+      if (!Object.keys(n.stealing[key]).length) delete n.stealing[key];
+    }, `حفظ سرقات أسبوع ${fmtShort(wk)} (إجمالي الأسبوع ${total})`);
     dr.reset();
-    notify("تم حفظ فرص السرقات");
-  };
-  const resetDay = () => {
-    const was = stored(day);
-    mutate((n) => {
-      delete n.stealing[day];
-    }, `تصفير سرقات يوم ${fmtShort(day)} (كان ${was})`);
-    dr.reset();
-    notify("صُفّرت سرقات اليوم");
+    notify("تم حفظ سرقات الأسبوع");
   };
   const resetWeek = () => {
-    let was = 0;
-    for (let i = 0; i < 7; i++) was += stored(addDays(wk, i));
+    const was = Object.keys(db.stealing).filter(inWeek).reduce((s, k) => s + sumObj(db.stealing[k]), 0);
     mutate((n) => {
-      for (let i = 0; i < 7; i++) delete n.stealing[addDays(wk, i)];
-    }, `تصفير سرقات الأسبوع من ${fmtShort(wk)} (كان ${was})`);
+      Object.keys(n.stealing).filter(inWeek).forEach((k) => { delete n.stealing[k]; });
+    }, `تصفير سرقات أسبوع ${fmtShort(wk)} (كان ${was})`);
     dr.reset();
-    notify("صُفّرت سرقات الأسبوع");
+    notify("صُفّرت سرقات هذا الأسبوع");
   };
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(DayNav, { day, setDay }), /* @__PURE__ */ React.createElement("div", { className: "hero-total" }, /* @__PURE__ */ React.createElement("span", { className: "sub" }, "مجموع فرص السرقات لهذا اليوم"), /* @__PURE__ */ React.createElement("span", { className: "big gold-text" }, /* @__PURE__ */ React.createElement(CountUp, { value: total })), /* @__PURE__ */ React.createElement("div", { className: "hero-sub" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("small", null, "هذا الأسبوع"), /* @__PURE__ */ React.createElement("strong", null, nf(weekTotal))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("small", null, "المجموع الكلي"), /* @__PURE__ */ React.createElement("strong", null, nf(allTotal)))), /* @__PURE__ */ React.createElement(Btn, { className: "btn-sm", style: { marginTop: 12 }, icon: "Copy", onClick: () => copyText(`إجمالي فرص السرقات (${fmtFull(day)}): ${total}
-الإجمالي الكلي للقبيلة: ${allTotal}`, notify) }, "نسخ الملخص للهجوم")), !edit ? /* @__PURE__ */ React.createElement("div", { className: "note" }, /* @__PURE__ */ React.createElement(Icon, { n: "Lock", size: 18 }), "العرض فقط. يسجّل شيخ السرقات والرئيس الفرص.") : null, edit ? /* @__PURE__ */ React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(ConfirmBtn, { className: "btn-sm", icon: "RotateCcw", label: "تصفير اليوم", onConfirm: resetDay }), /* @__PURE__ */ React.createElement(ConfirmBtn, { className: "btn-sm", icon: "RotateCcw", label: "تصفير الأسبوع", onConfirm: resetWeek })) : null, /* @__PURE__ */ React.createElement(SearchBox, { id: "steal-search", value: q, onChange: setQ }), members.length === 0 ? /* @__PURE__ */ React.createElement(Empty, { icon: "Swords", title: "لا يوجد أعضاء", text: "سجّل الأعضاء أولاً ليظهروا هنا." }) : /* @__PURE__ */ React.createElement("div", { className: "card card-flush divide" }, shown.map((m) => /* @__PURE__ */ React.createElement("div", { key: m.id, className: "list-row" + (dr.dirty.includes(m.id) ? " dirty" : "") }, /* @__PURE__ */ React.createElement("div", { className: "lr-main" }, /* @__PURE__ */ React.createElement("div", { className: "lr-name" }, m.name), /* @__PURE__ */ React.createElement("div", { className: "lr-sub" }, m.rank)), edit ? /* @__PURE__ */ React.createElement("div", { className: "stepper" }, /* @__PURE__ */ React.createElement("button", { type: "button", className: "step", "aria-label": `إنقاص ${m.name}`, onClick: () => dr.set(m.id, String(Math.max(0, cnt(m.id) - 1))) }, /* @__PURE__ */ React.createElement(Icon, { n: "Minus", size: 18 })), /* @__PURE__ */ React.createElement("input", { id: `st-${m.id}`, inputMode: "numeric", "aria-label": `فرص ${m.name}`, value: dr.val(m.id) === "" ? "0" : dr.val(m.id), onChange: (e) => dr.set(m.id, digitsOnly(e.target.value).slice(0, 3)) }), /* @__PURE__ */ React.createElement("button", { type: "button", className: "step plus", "aria-label": `زيادة ${m.name}`, onClick: () => dr.set(m.id, String(Math.min(999, cnt(m.id) + 1))) }, /* @__PURE__ */ React.createElement(Icon, { n: "Plus", size: 18 }))) : /* @__PURE__ */ React.createElement("strong", { className: "mono t-gold", style: { fontSize: 18 } }, cnt(m.id))))), /* @__PURE__ */ React.createElement(SaveBar, { count: dr.dirty.length, onSave: save, onCancel: dr.reset, label: "حفظ اليوم" }));
+  const resetAll = () => {
+    const was = stealAll(db);
+    mutate((n) => {
+      n.stealing = {};
+    }, `تصفير كل السرقات للجميع (كان ${was})`);
+    dr.reset();
+    notify("صُفّرت كل السرقات");
+  };
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(WeekNav, { wk, setWk }), /* @__PURE__ */ React.createElement("div", { className: "hero-total" }, /* @__PURE__ */ React.createElement("span", { className: "sub" }, wk === cw ? "مجموع سرقات هذا الأسبوع" : "مجموع سرقات هذا الأسبوع المحدد"), /* @__PURE__ */ React.createElement("span", { className: "big gold-text" }, /* @__PURE__ */ React.createElement(CountUp, { value: total })), /* @__PURE__ */ React.createElement("div", { className: "hero-sub" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("small", null, "المجموع الكلي (لا يُمسح)"), /* @__PURE__ */ React.createElement("strong", null, nf(allTotal))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("small", null, "أعضاء لديهم سرقات"), /* @__PURE__ */ React.createElement("strong", null, nf(holders)))), /* @__PURE__ */ React.createElement(Btn, { className: "btn-sm", style: { marginTop: 12 }, icon: "Copy", onClick: () => copyText(`إجمالي سرقات أسبوع ${fmtShort(wk)}: ${total}\nالإجمالي الكلي للقبيلة: ${allTotal}`, notify) }, "نسخ الملخص للهجوم")), !edit ? /* @__PURE__ */ React.createElement("div", { className: "note" }, /* @__PURE__ */ React.createElement(Icon, { n: "Lock", size: 18 }), "العرض فقط. يسجّل شيخ السرقات والرئيس السرقات كل أسبوع.") : null, edit ? /* @__PURE__ */ React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(ConfirmBtn, { className: "btn-sm", icon: "RotateCcw", label: "تصفير هذا الأسبوع", onConfirm: resetWeek }), /* @__PURE__ */ React.createElement(ConfirmBtn, { className: "btn-sm", icon: "RotateCcw", label: "تصفير الكل", onConfirm: resetAll })) : null, /* @__PURE__ */ React.createElement(SearchBox, { id: "steal-search", value: q, onChange: setQ }), members.length === 0 ? /* @__PURE__ */ React.createElement(Empty, { icon: "Swords", title: "لا يوجد أعضاء", text: "سجّل الأعضاء أولاً ليظهروا هنا." }) : /* @__PURE__ */ React.createElement("div", { className: "card card-flush divide" }, shown.map((m) => /* @__PURE__ */ React.createElement("div", { key: m.id, className: "list-row" + (dr.dirty.includes(m.id) ? " dirty" : "") }, /* @__PURE__ */ React.createElement("div", { className: "lr-main" }, /* @__PURE__ */ React.createElement("div", { className: "lr-name" }, m.name), /* @__PURE__ */ React.createElement("div", { className: "lr-sub" }, m.rank, " · ", /* @__PURE__ */ React.createElement("span", { className: "t-gold" }, "الكلي ", nf(life(m.id))))), edit ? /* @__PURE__ */ React.createElement("div", { className: "stepper" }, /* @__PURE__ */ React.createElement("button", { type: "button", className: "step", "aria-label": `إنقاص ${m.name}`, onClick: () => dr.set(m.id, String(Math.max(0, cnt(m.id) - 1))) }, /* @__PURE__ */ React.createElement(Icon, { n: "Minus", size: 18 })), /* @__PURE__ */ React.createElement("input", { id: `st-${m.id}`, inputMode: "numeric", "aria-label": `سرقات ${m.name}`, value: dr.val(m.id) === "" ? "0" : dr.val(m.id), onChange: (e) => dr.set(m.id, digitsOnly(e.target.value).slice(0, 3)) }), /* @__PURE__ */ React.createElement("button", { type: "button", className: "step plus", "aria-label": `زيادة ${m.name}`, onClick: () => dr.set(m.id, String(Math.min(999, cnt(m.id) + 1))) }, /* @__PURE__ */ React.createElement(Icon, { n: "Plus", size: 18 }))) : /* @__PURE__ */ React.createElement("strong", { className: "mono t-gold", style: { fontSize: 18 } }, cnt(m.id))))), /* @__PURE__ */ React.createElement(SaveBar, { count: dr.dirty.length, onSave: save, onCancel: dr.reset, label: "حفظ الأسبوع" }));
 }
 function Chests() {
   const { db, me, mutate, notify } = useApp();
   const edit = can.chests(me.role);
-  const t = todayKey(), wk = weekStart(t);
+  const t = todayKey(), wk = currentWeekKey();
   const [type, setType] = useState("normal");
   const [mids, setMids] = useState([]);
   const [note, setNote] = useState("");
@@ -989,7 +1082,9 @@ function ActivityPage() {
   const { db, me, mutate, notify } = useApp();
   const edit = can.activity(me.role);
   const [seg, setSeg] = useState("points");
-  const [wk, setWk] = useState(weekStart(todayKey()));
+  const [wkSel, setWkSel] = useState(null);
+  const wk = wkSel || currentWeekKey();
+  const setWk = (k) => setWkSel(k >= currentWeekKey() ? null : k);
   const [q, setQ] = useState("");
   const [onlyLow, setOnlyLow] = useState(false);
   const [warnFor, setWarnFor] = useState(null);
@@ -1274,6 +1369,8 @@ function App() {
   const [setupErr, setSetupErr] = useState("");
   const [tab, setTab] = useState("home");
   const [sub, setSub] = useState(null);
+  const [, setTick] = useState(0);
+  useEffect(() => { const id = setInterval(() => setTick((x) => x + 1), 30000); return () => clearInterval(id); }, []);
   const [memberId, setMemberId] = useState(null);
   const [toast, setToast] = useState(null);
   const loginFlag = useRef(false);
