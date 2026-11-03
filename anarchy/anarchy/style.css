@@ -441,3 +441,8 @@ body::after{content:"";position:fixed;left:0;right:0;bottom:0;height:env(safe-ar
 .splash.ph3 .splash-rays{animation:rays 2.4s cubic-bezier(.16,1,.3,1) both}
 @keyframes rays{0%{opacity:0;transform:scale(.55) rotate(0)}12%{opacity:1}100%{opacity:0;transform:scale(1.5) rotate(16deg)}}
 @keyframes vbreath{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+
+/* احتياط إن تأخّر تحميل Tailwind: شبكة الصناديق الثلاثة */
+.grid{display:grid}
+.grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.gap-2\.5{gap:10px}
