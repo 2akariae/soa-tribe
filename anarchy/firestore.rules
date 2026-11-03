@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function me() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function isStaff() { return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)); }
+    function role() { return me().role; }
+    function isLeader() { return isStaff() && role() == 'leader'; }
+    function setupOpen() { return signedIn() && !exists(/databases/$(database)/documents/meta/setup); }
+
+    // awl mra: ghir ytkhlq setup
+    match /meta/setup {
+      allow read: if true;
+      allow create: if setupOpen();
+    }
+
+    // weid -> email (bach l login ykhdm qbl ma ydkhl). ma fiha walo sensible.
+    match /logins/{k} {
+      allow read: if true;
+      allow create: if setupOpen() || isLeader();
+      allow update, delete: if isLeader();
+    }
+
+    match /users/{uid} {
+      allow read: if isStaff();
+      allow create: if (setupOpen() && request.auth.uid == uid && request.resource.data.role == 'leader') || isLeader();
+      allow update, delete: if isLeader();
+    }
+
+    // data dyal l9bila: doc wa7d, kol field 3ndo role li ybdlo
+    match /soa/db {
+      allow read: if isStaff();
+      allow create: if setupOpen() || isLeader();
+      allow update: if isStaff() && (
+        isLeader() ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['warnings','events','attendance','audit'])
+        || (role() == 'recruit'  && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members','kicks','warnings','events','attendance','audit']))
+        || (role() == 'activity' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['activity','warnings','events','attendance','audit']))
+        || (role() == 'chests'   && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['chests','warnings','events','attendance','audit']))
+        || (role() == 'stealing' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stealing','warnings','events','attendance','audit']))
+      );
+    }
+  }
+}
