@@ -584,24 +584,25 @@ body{background-image:radial-gradient(ellipse at 50% -15%,rgba(var(--accent-rgb)
 .splash.ph4 .splash-rule{box-shadow:0 0 10px rgba(var(--accent-rgb),.28)}
 .splash-reveal-wash{position:absolute;inset:0;z-index:6;pointer-events:none;opacity:0;background:radial-gradient(ellipse at 50% 52%,rgba(255,229,177,.2),rgba(190,142,65,.11) 34%,rgba(11,9,6,.02) 72%);mix-blend-mode:screen}
 .splash.ph5 .splash-reveal-wash{animation:reveal-wash 1.55s cubic-bezier(.2,.7,.25,1) .12s both}
-.splash-controls{position:absolute;z-index:7;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 26px);transform:translateX(-50%);display:flex;align-items:center;gap:8px;white-space:nowrap}
-.splash-controls .splash-skip{position:static;left:auto;bottom:auto;transform:none;opacity:1;margin:0}
-.splash-audio{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:40px;padding:0 13px;border-radius:999px;border:1px solid rgba(var(--accent-rgb),.22);background:rgba(15,13,10,.64);backdrop-filter:blur(12px);color:rgba(240,223,178,.78);font:500 12px var(--font-body);transition:background .2s,border-color .2s,color .2s}
-.splash-audio:hover,.splash-audio[aria-pressed="true"]{background:rgba(var(--accent-rgb),.13);border-color:rgba(var(--accent-rgb),.48);color:var(--gold-hi)}
-.splash.ph5 .splash-controls{opacity:0;transition:opacity .25s ease}
-@keyframes brand-arrive{0%{opacity:0;transform:translateY(14px) scale(.9);filter:blur(12px)}65%{opacity:1;filter:blur(0);transform:translateY(0) scale(1.012)}100%{opacity:1;transform:none;filter:none}}
 @keyframes brand-exit{0%{opacity:1;transform:scale(1);filter:blur(0)}100%{opacity:0;transform:translateY(-8px) scale(.94);filter:blur(9px)}}
 @keyframes halo-exit{to{opacity:0;transform:scale(1.18)}}
 @keyframes flash-soft{0%{opacity:0}16%{opacity:.46}100%{opacity:0}}
 @keyframes rays-soft{0%{opacity:0;transform:scale(.72) rotate(0)}24%{opacity:.48}100%{opacity:0;transform:scale(1.24) rotate(9deg)}}
 @keyframes ring-soft{0%{opacity:.48;transform:translateY(-58px) scale(.9)}100%{opacity:0;transform:translateY(-58px) scale(28)}}
-@keyframes wordmark-arrive{0%{opacity:0;transform:translateY(8px);filter:blur(4px);letter-spacing:.24em}100%{opacity:1;transform:none;filter:none;letter-spacing:.14em}}
 @keyframes reveal-wash{0%{opacity:0}26%{opacity:.72}100%{opacity:0}}
 
-@keyframes brand-arrive{0%{opacity:0;transform:translateY(22px) scale(.78);filter:blur(18px)}58%{opacity:1;filter:blur(0);transform:translateY(-3px) scale(1.035)}100%{opacity:1;transform:none;filter:none}}
 @keyframes halo-arrive{0%{opacity:0;transform:scale(.72) rotate(-18deg)}55%{opacity:.8}100%{opacity:.42;transform:scale(1) rotate(0)}}
 @keyframes halo-breathe{0%,100%{filter:brightness(.88);transform:scale(1) rotate(0)}50%{filter:brightness(1.15);transform:scale(1.035) rotate(8deg)}}
-@keyframes wordmark-arrive{0%{opacity:0;transform:translateY(10px);filter:blur(5px);letter-spacing:.32em}100%{opacity:1;transform:none;filter:none;letter-spacing:.14em}}
+.splash canvas{opacity:.16;filter:sepia(.38) saturate(.52) brightness(.7);transition:opacity 1.2s ease,filter 1.2s ease}
+.splash.ph3 canvas{opacity:.025;filter:blur(3px) sepia(.5) saturate(.4)}
+.splash.ph3 .splash-flash{animation:flash-soft .8s ease-out both}
+.splash.ph3 .splash-flash.fr,.splash.ph3 .splash-flash.fb{animation-duration:.65s}
+.splash.ph3 .splash-rays{animation:rays-soft 1.7s cubic-bezier(.16,1,.3,1) both}
+.splash.ph3 .splash-ring{animation:ring-soft 2.1s cubic-bezier(.16,1,.3,1) both}
+.splash.ph3 .splash-ring.r2{animation-delay:.24s}
+.splash.ph3 .splash-logo{animation:brand-arrive 1.35s cubic-bezier(.2,.8,.2,1) both}
+@keyframes brand-arrive{0%{opacity:0;transform:translateY(12px) scale(.93);filter:blur(10px)}72%{opacity:1;transform:translateY(0) scale(1.006);filter:blur(0)}100%{opacity:1;transform:none;filter:none}}
+@keyframes wordmark-arrive{0%{opacity:0;transform:translateY(7px);filter:blur(4px);letter-spacing:.22em}100%{opacity:1;transform:none;filter:none;letter-spacing:.14em}}
 @media(max-width:759px){
   .nav{left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));width:auto;max-width:520px;margin-inline:auto;transform:none}
 }

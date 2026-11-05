@@ -285,14 +285,11 @@ function useDraft(src, key) {
 }
 // Splash cinematic: tornado -> collapse -> flash -> logo reveal -> wordmark -> open. Awqat b ms (7ewlha hna).
 // مظهر الدخول: عدّل هذه الأرقام فقط. intensity = كثافة الدخان والإضاءة، grain = حبيبات الفيلم، push = اقتراب الكاميرا
-const SPLASH_LOOK = { intensity: .72, grain: .045, push: .14 };
-const SPL = { storm: 100, collapse: 1850, reveal: 2500, word: 3300, open: 4200, done: 6500 };
+const SPLASH_LOOK = { intensity: .52, grain: .03, push: .16 };
+const SPL = { storm: 100, collapse: 1500, reveal: 2200, word: 3100, open: 4050, done: 6200 };
 function Splash({ onDone }) {
   const [phase, setPhase] = useState(0);
-  const [soundEnabled, setSoundEnabled] = useState(false);
   const cv = useRef(null);
-  const audioRef = useRef(null);
-  const soundPlayed = useRef(false);
   const reduce = useMemo(() => !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches), []);
   useEffect(() => {
     const T = reduce ? { storm: 50, collapse: 100, reveal: 200, word: 450, open: 1300, done: 1700 } : SPL;
@@ -671,32 +668,6 @@ function Splash({ onDone }) {
       window.removeEventListener("resize", resize);
     };
   }, []);
-  useEffect(() => {
-    if (!soundEnabled || phase < 5 || soundPlayed.current || !audioRef.current) return;
-    soundPlayed.current = true;
-    const ctx = audioRef.current;
-    if (ctx.state === "suspended") ctx.resume().catch(() => {});
-    const now = ctx.currentTime;
-    const gain = ctx.createGain();
-    const filter = ctx.createBiquadFilter();
-    const tone = ctx.createOscillator();
-    filter.type = "lowpass";
-    filter.frequency.setValueAtTime(620, now);
-    filter.frequency.exponentialRampToValueAtTime(150, now + .8);
-    tone.type = "sine";
-    tone.frequency.setValueAtTime(145, now);
-    tone.frequency.exponentialRampToValueAtTime(58, now + .72);
-    gain.gain.setValueAtTime(.0001, now);
-    gain.gain.exponentialRampToValueAtTime(.055, now + .12);
-    gain.gain.exponentialRampToValueAtTime(.0001, now + .9);
-    tone.connect(filter);
-    filter.connect(gain);
-    gain.connect(ctx.destination);
-    tone.start(now);
-    tone.stop(now + .92);
-    tone.onended = () => { tone.disconnect(); filter.disconnect(); gain.disconnect(); };
-  }, [phase, soundEnabled]);
-  useEffect(() => () => { if (audioRef.current && audioRef.current.state !== "closed") audioRef.current.close().catch(() => {}); }, []);
   const cls = Array.from({ length: phase }, (_, i) => "ph" + (i + 1)).join(" ");
   const h = React.createElement;
   const skip = () => { document.documentElement.classList.remove("booting"); onDone(); };
@@ -727,16 +698,7 @@ function Splash({ onDone }) {
     h("div", { className: "splash-seam" }),
     h("div", { className: "splash-reveal-wash", "aria-hidden": "true" }),
     h("div", { className: "splash-grain" }),
-    h("div", { className: "splash-controls" },
-      h("button", { type: "button", className: "splash-audio", "aria-pressed": soundEnabled, onClick: () => {
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (!soundEnabled && AudioCtx) {
-          if (!audioRef.current) audioRef.current = new AudioCtx();
-          audioRef.current.resume().catch(() => {});
-        }
-        setSoundEnabled((v) => !v);
-      } }, h(Icon, { n: soundEnabled ? "Volume2" : "VolumeX", size: 15 }), soundEnabled ? "الصوت مفعّل" : "تشغيل الصوت"),
-      h("button", { type: "button", className: "splash-skip", onClick: skip }, "تخطي")));
+    h("button", { type: "button", className: "splash-skip", onClick: skip }, "تخطي"));
 }
 function AuthShell({ sub, children }) {
   return /* @__PURE__ */ React.createElement("div", { className: "login gutter" }, /* @__PURE__ */ React.createElement("div", { className: "col" }, /* @__PURE__ */ React.createElement("div", { className: "login-logo" }, /* @__PURE__ */ React.createElement(Logo, { size: 130 }), /* @__PURE__ */ React.createElement("div", { className: "disp gold-text", style: { fontSize: 30, fontWeight: 700, lineHeight: 1.2 } }, "أبناء الفوضى"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, sub)), children));
