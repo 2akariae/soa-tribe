@@ -567,6 +567,28 @@ body{background-image:radial-gradient(ellipse at 50% -15%,rgba(var(--accent-rgb)
 .splash.ph5 .splash-half.r{box-shadow:inset 22px 0 48px -38px rgba(var(--accent-rgb),.9)}
 .splash-skip{background:rgba(15,13,10,.62);border-color:rgba(var(--accent-rgb),.25);color:rgba(240,223,178,.76);letter-spacing:.02em;backdrop-filter:blur(12px)}
 .splash-skip:hover{background:rgba(var(--accent-rgb),.12);box-shadow:0 0 26px rgba(var(--accent-rgb),.12)}
+.splash canvas{opacity:.3;filter:sepia(.34) saturate(.62) brightness(.78);transition:opacity 1.15s ease,filter 1.15s ease}
+.splash.ph3 canvas{opacity:.08;filter:blur(2px) sepia(.5) saturate(.5)}
+.splash.ph5 canvas{opacity:0}
+.splash.ph3 .splash-flash{animation:flash-soft .85s cubic-bezier(.2,.75,.25,1) both}
+.splash.ph3 .splash-flash.fr,.splash.ph3 .splash-flash.fb{animation-duration:.72s}
+.splash.ph3 .splash-rays{animation:rays-soft 1.5s cubic-bezier(.16,1,.3,1) both}
+.splash.ph3 .splash-ring{border-color:rgba(var(--accent-rgb),.5);box-shadow:0 0 30px rgba(var(--accent-rgb),.13),inset 0 0 12px rgba(var(--accent-rgb),.08);animation:ring-soft 1.8s cubic-bezier(.16,1,.3,1) both}
+.splash.ph3 .splash-ring.r2{animation-delay:.22s}
+.splash.ph3 .splash-logo{animation:brand-arrive 1.45s cubic-bezier(.2,.8,.2,1) both}
+.splash.ph5 .splash-logo{animation:brand-exit .55s cubic-bezier(.4,0,.7,.2) .08s both}
+.splash.ph5 .splash-logo::before{animation:halo-exit .75s ease both}
+.splash.ph5 .splash-glow{opacity:0;transition:opacity .35s ease}
+.splash.ph5 .splash-seam{animation:seam-open 1.75s cubic-bezier(.72,0,.18,1) .12s both}
+.splash.ph5 .splash-light{animation:light-flood 2.1s ease .18s both}
+.splash.ph4 .splash-rule{box-shadow:0 0 10px rgba(var(--accent-rgb),.28)}
+@keyframes brand-arrive{0%{opacity:0;transform:translateY(14px) scale(.9);filter:blur(12px)}65%{opacity:1;filter:blur(0);transform:translateY(0) scale(1.012)}100%{opacity:1;transform:none;filter:none}}
+@keyframes brand-exit{0%{opacity:1;transform:scale(1);filter:blur(0)}100%{opacity:0;transform:translateY(-8px) scale(.94);filter:blur(9px)}}
+@keyframes halo-exit{to{opacity:0;transform:scale(1.18)}}
+@keyframes flash-soft{0%{opacity:0}16%{opacity:.46}100%{opacity:0}}
+@keyframes rays-soft{0%{opacity:0;transform:scale(.72) rotate(0)}24%{opacity:.48}100%{opacity:0;transform:scale(1.24) rotate(9deg)}}
+@keyframes ring-soft{0%{opacity:.48;transform:translateY(-58px) scale(.9)}100%{opacity:0;transform:translateY(-58px) scale(28)}}
+@keyframes wordmark-arrive{0%{opacity:0;transform:translateY(8px);filter:blur(4px);letter-spacing:.24em}100%{opacity:1;transform:none;filter:none;letter-spacing:.14em}}
 @keyframes brand-arrive{0%{opacity:0;transform:translateY(22px) scale(.78);filter:blur(18px)}58%{opacity:1;filter:blur(0);transform:translateY(-3px) scale(1.035)}100%{opacity:1;transform:none;filter:none}}
 @keyframes halo-arrive{0%{opacity:0;transform:scale(.72) rotate(-18deg)}55%{opacity:.8}100%{opacity:.42;transform:scale(1) rotate(0)}}
 @keyframes halo-breathe{0%,100%{filter:brightness(.88);transform:scale(1) rotate(0)}50%{filter:brightness(1.15);transform:scale(1.035) rotate(8deg)}}
