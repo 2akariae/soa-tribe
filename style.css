@@ -612,3 +612,39 @@ body{background-image:radial-gradient(ellipse at 50% -15%,rgba(var(--accent-rgb)
   .header-in{gap:8px}
   .role-chip{padding:5px 8px;font-size:11px}
 }
+
+/* Simplified, logo-first intro */
+.splash{background:#080807;perspective:none}
+.splash canvas,.splash-flash,.splash-rays,.splash-streak,.splash-ring,.splash-dustfall,.splash-seam,.splash-grain{display:none!important}
+.splash-half{clip-path:none!important;inset:0;background:radial-gradient(ellipse 42% 38% at 50% 43%,rgba(var(--accent-rgb),.075),transparent 74%),linear-gradient(180deg,#0b0a08,#080807 65%,#070706);transition:opacity .8s cubic-bezier(.2,.7,.2,1),transform .9s cubic-bezier(.2,.7,.2,1),filter .8s ease;will-change:opacity,transform}
+.splash-half.l,.splash-half.r{transform:none;transform-origin:50% 50%}
+.splash-half.r{background:transparent}
+.splash-half.r .splash-vignette{display:none}
+.splash.ph1 .splash-sky{opacity:.5}
+.splash-sky{background:radial-gradient(ellipse at 50% 38%,rgba(var(--accent-rgb),.12),transparent 58%),linear-gradient(180deg,rgba(255,255,255,.012),transparent 38%);opacity:0;transition:opacity 1.1s ease}
+.splash-vignette{animation:none;background:radial-gradient(ellipse at center,transparent 42%,rgba(0,0,0,.46) 100%)}
+.splash-logo{gap:10px;transform:translateY(8px) scale(.96);filter:blur(8px);opacity:0}
+.splash-logo::before{width:min(82vw,440px);border-color:rgba(var(--accent-rgb),.14);background:radial-gradient(circle,rgba(var(--accent-rgb),.08),transparent 63%);box-shadow:0 0 55px rgba(var(--accent-rgb),.09);opacity:0;transform:scale(.94)}
+.splash.ph3 .splash-logo{animation:logo-first-reveal 1.15s cubic-bezier(.2,.75,.25,1) both;transition:none}
+.splash.ph3 .splash-logo::before{animation:logo-aura 1.5s ease-out .15s both}
+.splash-glow{width:300px;height:300px;margin:-150px 0 0 -150px;background:radial-gradient(circle,rgba(var(--accent-rgb),.13),rgba(var(--accent-rgb),.035) 42%,transparent 70%);filter:blur(8px);animation:none;opacity:0;transition:opacity 1.2s ease .2s}
+.splash.ph3 .splash-glow{opacity:1}
+.splash.ph3 .splash-logo .logo-img{animation:logo-settle 1.2s cubic-bezier(.2,.75,.25,1) both}
+.splash.ph3 .splash-logo .logo-img img{filter:saturate(.88) contrast(1.05) drop-shadow(0 12px 22px rgba(0,0,0,.58)) drop-shadow(0 0 18px rgba(var(--accent-rgb),.16))}
+.splash.ph3 .splash-logo .logo-img::after{animation:gleam 2.2s ease-in-out .55s 1 both}
+.splash-soa{font-size:46px;letter-spacing:.16em;text-shadow:0 5px 24px rgba(var(--accent-rgb),.12)}
+.splash-ch{transform:translateY(10px);filter:blur(3px);transition:opacity .7s ease,transform .8s cubic-bezier(.2,.75,.25,1),filter .7s ease;transition-delay:calc(var(--i)*.12s)}
+.splash-rule{margin:6px 0 4px;background:linear-gradient(90deg,transparent,rgba(var(--accent-rgb),.7),transparent);transition:width .8s cubic-bezier(.2,.7,.2,1) .18s}
+.splash-ar{font-size:20px;color:rgba(240,223,178,.84);transition:opacity .7s ease .34s,transform .8s cubic-bezier(.2,.75,.25,1) .34s,filter .7s ease .34s}
+.splash.ph5{pointer-events:none;animation:intro-dissolve .82s cubic-bezier(.4,0,.2,1) both}
+.splash.ph5 .splash-half{opacity:0;transform:scale(1.025);filter:blur(2px)}
+.splash.ph5 .splash-logo{animation:logo-exit .48s ease-in both}
+.splash.ph5 .splash-logo::before,.splash.ph5 .splash-glow{opacity:0;transition:opacity .2s ease}
+.splash.ph5 .splash-reveal-wash{animation:reveal-wash 1.1s ease-out both}
+.splash-skip{border-color:rgba(var(--accent-rgb),.18);background:rgba(12,11,9,.5);backdrop-filter:blur(10px)}
+@keyframes logo-first-reveal{0%{opacity:0;transform:translateY(12px) scale(.94);filter:blur(9px)}100%{opacity:1;transform:none;filter:none}}
+@keyframes logo-aura{0%{opacity:0;transform:scale(.9)}55%{opacity:.62}100%{opacity:.38;transform:scale(1)}}
+@keyframes logo-settle{0%{opacity:0;transform:translateY(8px) scale(.96)}100%{opacity:1;transform:none}}
+@keyframes logo-exit{to{opacity:0;transform:scale(.98);filter:blur(5px)}}
+@keyframes intro-dissolve{0%{opacity:1}100%{opacity:0}}
+@media(max-height:640px){.splash-logo{scale:.82}}

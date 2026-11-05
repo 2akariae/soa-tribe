@@ -285,14 +285,14 @@ function useDraft(src, key) {
 }
 // Splash cinematic: tornado -> collapse -> flash -> logo reveal -> wordmark -> open. Awqat b ms (7ewlha hna).
 // مظهر الدخول: عدّل هذه الأرقام فقط. intensity = كثافة الدخان والإضاءة، grain = حبيبات الفيلم، push = اقتراب الكاميرا
-const SPLASH_LOOK = { intensity: .52, grain: .03, push: .16 };
-const SPL = { storm: 100, collapse: 1500, reveal: 2200, word: 3100, open: 4050, done: 6200 };
+const SPLASH_LOOK = { intensity: 0, grain: 0, push: .08 };
+const SPL = { storm: 80, collapse: 650, reveal: 900, word: 1550, open: 2750, done: 3700 };
 function Splash({ onDone }) {
   const [phase, setPhase] = useState(0);
   const cv = useRef(null);
   const reduce = useMemo(() => !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches), []);
   useEffect(() => {
-    const T = reduce ? { storm: 50, collapse: 100, reveal: 200, word: 450, open: 1300, done: 1700 } : SPL;
+    const T = reduce ? { storm: 20, collapse: 60, reveal: 100, word: 180, open: 260, done: 500 } : SPL;
     const unboot = () => document.documentElement.classList.remove("booting");
     const ids = [
       setTimeout(() => setPhase(1), T.storm),
@@ -305,7 +305,7 @@ function Splash({ onDone }) {
     return () => ids.forEach(clearTimeout);
   }, []);
   useEffect(() => {
-    if (reduce) return;
+    if (reduce || SPLASH_LOOK.intensity <= 0) return;
     const c = cv.current;
     if (!c) return;
     const ctx = c.getContext("2d");
@@ -671,17 +671,18 @@ function Splash({ onDone }) {
   const cls = Array.from({ length: phase }, (_, i) => "ph" + (i + 1)).join(" ");
   const h = React.createElement;
   const skip = () => { document.documentElement.classList.remove("booting"); onDone(); };
-  const layer = (side) => h("div", { key: side, className: `splash-half ${side}`, "aria-hidden": side === "r" ? "true" : void 0 },
+  const brand = h("div", { className: "splash-logo" },
+    h("div", { className: "splash-glow" }),
+    h(Logo, { size: 280 }),
+    h("div", { className: "splash-word" },
+      h("div", { className: "splash-soa", lang: "en", role: "img", "aria-label": "SOA" },
+        ["S", "O", "A"].map((ch, i) => h("span", { key: i, className: "splash-ch gold-text", style: { "--i": i }, "aria-hidden": "true" }, ch))),
+      h("div", { className: "splash-rule" }),
+      h("div", { className: "splash-ar" }, "أبناء الفوضى")));
+  const layer = (side) => h("div", { key: side, className: `splash-half ${side}`, "aria-hidden": side === "l" ? "true" : void 0 },
     h("div", { className: "splash-sky" }),
     h("div", { className: "splash-vignette" }),
-    h("div", { className: "splash-logo" },
-      h("div", { className: "splash-glow" }),
-      h(Logo, { size: 250 }),
-      h("div", { className: "splash-word" },
-        h("div", { className: "splash-soa", lang: "en", role: "img", "aria-label": "SOA" },
-          ["S", "O", "A"].map((ch, i) => h("span", { key: i, className: "splash-ch gold-text", style: { "--i": i }, "aria-hidden": "true" }, ch))),
-        h("div", { className: "splash-rule" }),
-        h("div", { className: "splash-ar" }, "أبناء الفوضى"))));
+    side === "r" ? brand : null);
   return h("div", { className: `splash ${cls}`, "aria-label": "شاشة الدخول", style: { "--grain": SPLASH_LOOK.grain } },
     h("div", { className: "splash-light" }),
     h("div", { className: "splash-dustfall" }),
