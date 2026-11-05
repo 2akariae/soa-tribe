@@ -286,7 +286,7 @@ function useDraft(src, key) {
 // Splash cinematic: tornado -> collapse -> flash -> logo reveal -> wordmark -> open. Awqat b ms (7ewlha hna).
 // مظهر الدخول: عدّل هذه الأرقام فقط. intensity = كثافة الدخان والإضاءة، grain = حبيبات الفيلم، push = اقتراب الكاميرا
 const SPLASH_LOOK = { intensity: 1, grain: .09, push: .10 };
-const SPL = { storm: 150, collapse: 2200, reveal: 3000, word: 3800, open: 4900, done: 7700 };
+const SPL = { storm: 100, collapse: 1850, reveal: 2500, word: 3300, open: 4200, done: 6500 };
 function Splash({ onDone }) {
   const [phase, setPhase] = useState(0);
   const cv = useRef(null);
