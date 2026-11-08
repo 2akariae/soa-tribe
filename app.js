@@ -221,8 +221,25 @@ const Ctx = createContext(null);
 const useApp = () => useContext(Ctx);
 const Badge = ({ tone = "gold", icon, children }) => /* @__PURE__ */ React.createElement("span", { className: `badge badge-${tone}` }, icon ? /* @__PURE__ */ React.createElement(Icon, { n: icon, size: 12, sw: 2.2 }) : null, children);
 const Btn = ({ kind = "ghost", icon, children, className = "", ...p }) => /* @__PURE__ */ React.createElement("button", { type: "button", className: `btn btn-${kind} ${className}`, ...p }, icon ? /* @__PURE__ */ React.createElement(Icon, { n: icon, size: 18 }) : null, children);
-const Field = ({ label, hint, children }) => /* @__PURE__ */ React.createElement("label", { className: "field" }, /* @__PURE__ */ React.createElement("span", { className: "field-label" }, label), children, hint ? /* @__PURE__ */ React.createElement("span", { className: "field-hint" }, hint) : null);
-const SearchBox = ({ id, value, onChange, placeholder = "ابحث بالاسم أو المعرّف" }) => /* @__PURE__ */ React.createElement("div", { className: "search" }, /* @__PURE__ */ React.createElement(Icon, { n: "Search", size: 18 }), /* @__PURE__ */ React.createElement("input", { id, value, onChange: (e) => onChange(e.target.value), placeholder, "aria-label": placeholder }));
+function applyPastedText(e, onChange) {
+  const el = e.currentTarget, text = e.clipboardData && e.clipboardData.getData("text");
+  if (text == null || ["date", "number", "checkbox", "radio", "time", "month", "week"].includes(el.type)) return;
+  e.preventDefault();
+  const start = el.selectionStart == null ? el.value.length : el.selectionStart;
+  const end = el.selectionEnd == null ? start : el.selectionEnd;
+  const max = el.maxLength > -1 ? el.maxLength : Infinity;
+  const next = (el.value.slice(0, start) + text + el.value.slice(end)).slice(0, max);
+  onChange({ target: { value: next } });
+  const caret = Math.min(start + text.length, next.length);
+  requestAnimationFrame(() => { if (el.isConnected && el.setSelectionRange) { try { el.setSelectionRange(caret, caret); } catch (_) {} } });
+}
+const Field = ({ label, hint, children }) => {
+  const control = React.isValidElement(children) && (children.type === "input" || children.type === "textarea") && children.props.onChange
+    ? React.cloneElement(children, { onPaste: (e) => applyPastedText(e, children.props.onChange) })
+    : children;
+  return /* @__PURE__ */ React.createElement("label", { className: "field" }, /* @__PURE__ */ React.createElement("span", { className: "field-label" }, label), control, hint ? /* @__PURE__ */ React.createElement("span", { className: "field-hint" }, hint) : null);
+}
+const SearchBox = ({ id, value, onChange, placeholder = "ابحث بالاسم أو المعرّف" }) => /* @__PURE__ */ React.createElement("div", { className: "search" }, /* @__PURE__ */ React.createElement(Icon, { n: "Search", size: 18 }), /* @__PURE__ */ React.createElement("input", { id, value, onChange: (e) => onChange(e.target.value), onPaste: (e) => applyPastedText(e, (event) => onChange(event.target.value)), placeholder, "aria-label": placeholder }));
 const Empty = ({ icon = "Skull", title, text }) => /* @__PURE__ */ React.createElement("div", { className: "empty" }, /* @__PURE__ */ React.createElement(Icon, { n: icon, size: 32, className: "t-gold" }), /* @__PURE__ */ React.createElement("b", null, title), text ? /* @__PURE__ */ React.createElement("span", null, text) : null);
 function Sheet({ title, onClose, children }) {
   useEffect(() => {
@@ -715,7 +732,7 @@ function AuthShell({ sub, children }) {
   return /* @__PURE__ */ React.createElement("div", { className: "login gutter" }, /* @__PURE__ */ React.createElement("div", { className: "col" }, /* @__PURE__ */ React.createElement("div", { className: "login-logo" }, /* @__PURE__ */ React.createElement(Logo, { size: 130 }), /* @__PURE__ */ React.createElement("div", { className: "disp gold-text", style: { fontSize: 30, fontWeight: 700, lineHeight: 1.2 } }, "أبناء الفوضى"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, sub)), children));
 }
 function PwInput({ id, value, onChange, show, setShow, placeholder = "••••••••", autoComplete = "off" }) {
-  return /* @__PURE__ */ React.createElement("div", { className: "pw-wrap" }, /* @__PURE__ */ React.createElement("input", { id, className: "input", type: show ? "text" : "password", value, autoComplete, autoCapitalize: "off", onChange: (e) => onChange(e.target.value), placeholder }), /* @__PURE__ */ React.createElement("button", { type: "button", className: "icon-btn", onClick: () => setShow((s) => !s), "aria-label": show ? "إخفاء كلمة المرور" : "إظهار كلمة المرور" }, /* @__PURE__ */ React.createElement(Icon, { n: show ? "EyeOff" : "Eye", size: 20 })));
+  return /* @__PURE__ */ React.createElement("div", { className: "pw-wrap" }, /* @__PURE__ */ React.createElement("input", { id, className: "input", type: show ? "text" : "password", value, autoComplete, autoCapitalize: "off", onChange: (e) => onChange(e.target.value), onPaste: (e) => applyPastedText(e, (event) => onChange(event.target.value)), placeholder }), /* @__PURE__ */ React.createElement("button", { type: "button", className: "icon-btn", onClick: () => setShow((s) => !s), "aria-label": show ? "إخفاء كلمة المرور" : "إظهار كلمة المرور" }, /* @__PURE__ */ React.createElement(Icon, { n: show ? "EyeOff" : "Eye", size: 20 })));
 }
 function Setup({ onCreate, error }) {
   const [f, setF] = useState({ name: "", weid: "", pw: "", pw2: "", demo: false });
