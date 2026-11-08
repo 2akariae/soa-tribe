@@ -872,3 +872,20 @@ body{background-color:var(--bg);background-image:radial-gradient(ellipse 80% 30%
 @keyframes real-door-camera{0%{background-size:auto 108%;filter:brightness(.48)}25%{filter:brightness(.7)}100%{background-size:auto 100%;filter:brightness(1)}}
 @keyframes real-door-stage-out{to{opacity:0}}
 @media(prefers-reduced-motion:reduce){.splash{animation:none!important;background-size:auto 100%}.splash.ph5{animation:none!important;opacity:0}}
+
+/* Keep the real photo at its natural proportions and swing each leaf from its outer hinge. */
+.splash{perspective:1250px;perspective-origin:50% 48%;background-image:url("assets/old-wooden-gate.jpg");background-position:center;background-size:auto 100%;animation:none}
+.splash::before{background-image:url("assets/old-wooden-gate.jpg");background-size:auto 100%;background-position:center;filter:blur(24px) brightness(.24) saturate(.7);mask-image:none;opacity:.5}
+.splash-half,.splash-half.l,.splash-half.r{display:block!important;inset:0 auto 0 auto;width:min(21.015vh,50vw);height:100%;clip-path:none;background-image:url("assets/old-wooden-doors.jpg");background-size:auto 100%;background-repeat:no-repeat;box-shadow:inset 0 0 24px rgba(0,0,0,.62),0 18px 58px rgba(0,0,0,.48);opacity:1;transition:transform 1.15s cubic-bezier(.2,.78,.2,1),filter 1s ease}
+.splash-half.l{left:auto;right:50%;transform-origin:right center;background-position:left center}
+.splash-half.r{left:50%;right:auto;transform-origin:left center;background-position:right center}
+.splash.ph2 .splash-half.l{transform:rotateY(1deg)}
+.splash.ph2 .splash-half.r{transform:rotateY(-1deg)}
+.splash.ph5 .splash-half.l{transform:rotateY(78deg);opacity:1;filter:brightness(.62) saturate(.78)}
+.splash.ph5 .splash-half.r{transform:rotateY(-78deg);opacity:1;filter:brightness(.62) saturate(.78)}
+.splash-half::before{width:14%;opacity:.14!important}
+.splash-half::after{width:8px!important;opacity:.68!important;box-shadow:0 0 14px rgba(181,122,65,.24)!important}
+.splash-seam{display:block!important;opacity:.22;background:linear-gradient(180deg,transparent,rgba(150,97,53,.45),rgba(227,171,106,.7),rgba(150,97,53,.45),transparent);box-shadow:0 0 20px rgba(156,100,50,.18)}
+.splash.ph5 .splash-seam{opacity:0}
+@media(max-width:520px){.splash-half,.splash-half.l,.splash-half.r{width:min(21.015vh,50vw)}}
+@media(prefers-reduced-motion:reduce){.splash.ph5 .splash-half.l{transform:rotateY(78deg)}.splash.ph5 .splash-half.r{transform:rotateY(-78deg)}}
