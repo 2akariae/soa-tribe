@@ -847,7 +847,7 @@ body{background-color:var(--bg);background-image:radial-gradient(ellipse 80% 30%
 @keyframes classy-mark-float{0%,100%{transform:translate3d(0,0,0) rotateY(-1deg)}50%{transform:translate3d(0,-3px,8px) rotateY(1deg)}}
 @media(prefers-reduced-motion:reduce){.splash.ph5 .splash-half.l,.splash.ph5 .splash-half.r,.splash.ph3 .splash-logo .logo-img{animation:none!important;transform:none!important}}
 
-.splash-half,.splash-half.l,.splash-half.r{background:#100b08 url("door-texture.svg") center/100% 100% no-repeat;box-shadow:inset 0 0 36px rgba(0,0,0,.42),0 18px 56px rgba(0,0,0,.48)}
+.splash-half,.splash-half.l,.splash-half.r{background:#100b08;box-shadow:inset 0 0 36px rgba(0,0,0,.42),0 18px 56px rgba(0,0,0,.48)}
 .splash.ph5 .splash-half.l,.splash.ph5 .splash-half.r{filter:brightness(.68) saturate(.82)}
 .splash{perspective:1050px;perspective-origin:50% 48%}
 .splash-half,.splash-half.l,.splash-half.r{box-shadow:inset 0 0 55px rgba(0,0,0,.62),0 28px 90px rgba(0,0,0,.62);transition:transform 1.15s cubic-bezier(.2,.78,.2,1),filter 1s ease,opacity 1s ease}
@@ -860,3 +860,15 @@ body{background-color:var(--bg);background-image:radial-gradient(ellipse 80% 30%
 .splash.ph5 .splash-half::after{opacity:.08!important}
 .splash-seam{background:linear-gradient(180deg,transparent,rgba(123,78,39,.5) 20%,rgba(207,139,67,.82) 50%,rgba(123,78,39,.5) 80%,transparent);box-shadow:0 0 18px rgba(154,89,34,.24),0 0 55px rgba(137,74,28,.1)}
 .splash-light{background:radial-gradient(ellipse at center,rgba(192,126,58,.13),rgba(127,76,35,.055) 30%,transparent 68%)}
+
+/* Real Unsplash photo by Sameer Srivastava; free under the Unsplash License. */
+.splash{perspective:none;background-color:#070809;background-image:url("assets/old-wooden-gate.jpg");background-position:center;background-size:auto 100%;background-repeat:no-repeat;animation:real-door-camera 2.45s cubic-bezier(.2,.75,.25,1) both}
+.splash::before{content:"";position:absolute;inset:-5%;z-index:0;pointer-events:none;background:url("assets/old-wooden-gate.jpg") center/cover no-repeat;filter:blur(20px) brightness(.3) saturate(.65);opacity:.78;transform:scale(1.08);mask-image:linear-gradient(90deg,#000 0%,#000 18%,transparent 43%,transparent 57%,#000 82%,#000 100%)}
+.splash::after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse at 50% 48%,transparent 34%,rgba(4,5,7,.3) 74%,rgba(4,5,7,.76) 100%),linear-gradient(180deg,rgba(5,6,8,.18),transparent 24% 68%,rgba(5,6,8,.42)),radial-gradient(ellipse 2% 32% at 50% 57%,rgba(184,111,55,.16),transparent 100%)}
+.splash-half,.splash canvas,.splash-flash,.splash-rays,.splash-streak,.splash-ring,.splash-dustfall,.splash-seam,.splash-grain,.splash-light,.splash-reveal-wash{display:none!important;background:none!important}
+.splash-logo{z-index:3}
+.splash-skip{z-index:5}
+.splash.ph5{animation:real-door-stage-out .72s ease both}
+@keyframes real-door-camera{0%{background-size:auto 108%;filter:brightness(.48)}25%{filter:brightness(.7)}100%{background-size:auto 100%;filter:brightness(1)}}
+@keyframes real-door-stage-out{to{opacity:0}}
+@media(prefers-reduced-motion:reduce){.splash{animation:none!important;background-size:auto 100%}.splash.ph5{animation:none!important;opacity:0}}
