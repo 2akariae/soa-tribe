@@ -832,3 +832,17 @@ body{background-color:var(--bg);background-image:radial-gradient(ellipse 80% 30%
 .splash-half::after{width:2px;opacity:.42!important;background:linear-gradient(180deg,transparent,rgba(191,210,240,.22) 12%,rgba(233,240,251,.62) 35%,rgba(248,237,215,.9) 50%,rgba(233,240,251,.62) 65%,rgba(191,210,240,.22) 88%,transparent);box-shadow:0 0 9px rgba(197,215,244,.24),0 0 28px rgba(181,202,237,.12),0 0 54px rgba(181,202,237,.06)}
 .splash.ph2 .splash-half::after{opacity:.68!important;box-shadow:0 0 12px rgba(205,221,247,.36),0 0 36px rgba(190,210,242,.18),0 0 76px rgba(190,210,242,.09)}
 .splash.ph5 .splash-half::after{opacity:.12!important}
+
+/* Real hinged motion: visible panel depth, an outer hinge, and perspective. */
+.splash{perspective:1500px;perspective-origin:50% 48%;transform-style:preserve-3d}
+.splash-half,.splash-half.l,.splash-half.r{transform-style:preserve-3d;backface-visibility:hidden;will-change:transform,filter;transition:transform 1.05s cubic-bezier(.2,.78,.2,1),opacity .8s ease,filter .8s ease;box-shadow:inset 0 1px rgba(255,255,255,.1),inset 0 -35px 70px rgba(0,0,0,.42),0 18px 50px rgba(0,0,0,.22)}
+.splash-half.l{transform-origin:left center}
+.splash-half.r{transform-origin:right center}
+.splash-half::after{width:7px!important;background:linear-gradient(90deg,rgba(4,6,10,.9),rgba(100,116,141,.5) 24%,rgba(236,239,245,.78) 48%,rgba(53,62,77,.62) 73%,rgba(4,6,10,.95))!important;box-shadow:0 0 10px rgba(197,215,244,.28),0 0 30px rgba(181,202,237,.14),inset 0 0 3px rgba(255,255,255,.34)!important}
+.splash.ph5 .splash-half.l{transform:rotateY(-66deg) translateZ(-12px);opacity:.82;filter:brightness(.7)}
+.splash.ph5 .splash-half.r{transform:rotateY(66deg) translateZ(-12px);opacity:.82;filter:brightness(.7)}
+.splash-logo{transform-style:preserve-3d;perspective:900px}
+.splash.ph3 .splash-logo .logo-img{transform-style:preserve-3d;animation:classy-mark-float 5.4s ease-in-out 1s infinite}
+@keyframes classy-logo-in{0%{opacity:0;transform:translate3d(0,20px,-100px) rotateX(9deg) scale(.92);filter:blur(7px)}100%{opacity:1;transform:translate3d(0,0,0) rotateX(0) scale(1);filter:none}}
+@keyframes classy-mark-float{0%,100%{transform:translate3d(0,0,0) rotateY(-1deg)}50%{transform:translate3d(0,-3px,8px) rotateY(1deg)}}
+@media(prefers-reduced-motion:reduce){.splash.ph5 .splash-half.l,.splash.ph5 .splash-half.r,.splash.ph3 .splash-logo .logo-img{animation:none!important;transform:none!important}}
