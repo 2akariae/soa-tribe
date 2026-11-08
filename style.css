@@ -730,6 +730,34 @@ body{background-image:radial-gradient(ellipse at 50% -15%,rgba(var(--accent-rgb)
 @keyframes premium-door-light{0%{opacity:0}22%{opacity:.64}100%{opacity:0}}
 @keyframes premium-wash{0%{opacity:0}24%{opacity:.42}100%{opacity:0}}
 @keyframes premium-stage-out{0%,42%{opacity:1}100%{opacity:0}}
+
+/* Classy, quiet intro: let the emblem and wordmark carry the reveal. */
+.splash{background:#090b10;perspective:none}
+.splash-half,.splash-half.l,.splash-half.r{transition:transform .85s cubic-bezier(.22,1,.36,1),opacity .75s ease,filter .75s ease;background:radial-gradient(ellipse at 50% 44%,rgba(183,199,225,.075),transparent 54%),linear-gradient(155deg,#151820,#0a0c11 58%,#11141b)}
+.splash-half.l{transform-origin:right center}.splash-half.r{transform-origin:left center}
+.splash-half::before,.splash-half::after{opacity:0!important}
+.splash-half .splash-sky{opacity:.65;background:radial-gradient(ellipse at 50% 42%,rgba(195,210,234,.075),transparent 55%),linear-gradient(180deg,rgba(255,255,255,.018),transparent 50%,rgba(0,0,0,.16))}
+.splash.ph1 .splash-half .splash-sky{opacity:.9}
+.splash.ph2 .splash-half.l,.splash.ph2 .splash-half.r{transform:none}
+.splash-logo{gap:8px}
+.splash.ph3 .splash-logo{animation:classy-logo-in .82s cubic-bezier(.2,.75,.25,1) both}
+.splash.ph3 .splash-logo .logo-img{animation:none}
+.splash.ph3 .splash-logo .logo-img img{filter:drop-shadow(0 12px 24px rgba(0,0,0,.55)) drop-shadow(0 0 14px rgba(190,205,228,.1))}
+.splash-logo::before{border-color:rgba(203,216,238,.07);background:radial-gradient(circle,rgba(177,197,231,.055),transparent 68%);box-shadow:0 0 55px rgba(139,164,207,.05)}
+.splash.ph3 .splash-logo::before{animation:classy-aura 1.25s ease-out .12s both}
+.splash-glow{background:radial-gradient(circle,rgba(172,192,226,.09),rgba(128,151,191,.025) 44%,transparent 72%)}
+.splash.ph3 .splash-flash,.splash.ph3 .splash-rays,.splash.ph3 .splash-streak,.splash.ph3 .splash-ring{display:none!important;animation:none!important}
+.splash-light,.splash-dustfall,.splash-seam,.splash-grain,.splash-reveal-wash{display:none!important;animation:none!important}
+.splash.ph5{animation:classy-stage-out .72s ease both}
+.splash.ph5 .splash-half.l{transform:translateX(-101%);filter:none}
+.splash.ph5 .splash-half.r{transform:translateX(101%);filter:none}
+.splash.ph5 .splash-logo{animation:classy-logo-out .42s ease-in both}
+.splash-skip{opacity:.72;transition:opacity .2s ease,color .2s ease,border-color .2s ease}
+.splash-skip:hover{opacity:1}
+@keyframes classy-logo-in{0%{opacity:0;transform:translateY(9px) scale(.975);filter:blur(5px)}100%{opacity:1;transform:none;filter:none}}
+@keyframes classy-aura{0%{opacity:0;transform:translate(-50%,-50%) scale(.96)}100%{opacity:.24;transform:translate(-50%,-50%) scale(1)}}
+@keyframes classy-logo-out{to{opacity:0;transform:translateY(-3px) scale(.99)}}
+@keyframes classy-stage-out{to{opacity:0}}
 body{background-color:var(--bg);background-image:radial-gradient(ellipse 80% 30% at 50% -8%,rgba(var(--accent-rgb),.055),transparent 76%);background-attachment:fixed}
 @media(max-width:759px){body{background-attachment:scroll}}
 .header{background:rgba(10,12,16,.84);border-color:rgba(221,229,243,.085);box-shadow:0 8px 24px rgba(0,0,0,.18);backdrop-filter:blur(16px) saturate(130%)}
@@ -773,3 +801,34 @@ body{background-color:var(--bg);background-image:radial-gradient(ellipse 80% 30%
 @keyframes nav-glass-glint{0%{opacity:0;transform:scaleX(.5)}35%{opacity:.58;transform:scaleX(1)}100%{opacity:0;transform:scaleX(.8)}}
 @media(max-width:759px){.splash-logo .logo-img{scale:.82}.splash-soa{font-size:44px}}
 @media(prefers-reduced-motion:reduce){.splash.ph3 .splash-logo .logo-img{animation:none}}
+
+/* Soft metallic door edges and a restrained light bloom on the reveal. */
+.splash-half::before{opacity:.12!important;background:linear-gradient(90deg,rgba(226,235,250,.055),transparent 65%);transition:opacity .8s ease}
+.splash-half.r::before{background:linear-gradient(270deg,rgba(226,235,250,.055),transparent 65%)}
+.splash-half::after{opacity:.34!important;background:linear-gradient(180deg,transparent,rgba(196,212,238,.3) 22%,rgba(239,228,205,.72) 50%,rgba(196,212,238,.3) 78%,transparent);box-shadow:0 0 12px rgba(178,198,229,.18),0 0 32px rgba(178,198,229,.08);transition:opacity .65s ease,box-shadow .65s ease}
+.splash.ph2 .splash-half::after{opacity:.56!important;box-shadow:0 0 16px rgba(190,208,237,.26),0 0 42px rgba(190,208,237,.12)}
+.splash.ph5 .splash-half::after{opacity:.08!important;box-shadow:0 0 8px rgba(190,208,237,.08)}
+.splash-seam{display:block!important;left:50%;width:1px;opacity:0;background:linear-gradient(180deg,transparent,rgba(219,229,246,.55) 24%,rgba(247,238,220,.88) 50%,rgba(219,229,246,.55) 76%,transparent);box-shadow:0 0 14px rgba(190,208,237,.2);animation:none!important;transition:opacity .35s ease}
+.splash.ph2 .splash-seam{opacity:.3}
+.splash.ph5 .splash-seam{opacity:0;animation:classy-seam-glow .8s ease-out both!important}
+.splash-light{display:block!important;background:radial-gradient(ellipse at center,rgba(215,226,244,.14),rgba(175,194,224,.055) 30%,transparent 68%);opacity:0;animation:none!important}
+.splash.ph5 .splash-light{animation:classy-door-glow .8s ease-out both!important}
+@keyframes classy-seam-glow{0%{opacity:.42;filter:blur(0)}45%{opacity:.68;filter:blur(1px)}100%{opacity:0;filter:blur(2px)}}
+@keyframes classy-door-glow{0%{opacity:0}28%{opacity:.38}100%{opacity:0}}
+@media(prefers-reduced-motion:reduce){.splash.ph5,.splash.ph3 .splash-logo,.splash.ph3 .splash-logo::before,.splash.ph5 .splash-light,.splash.ph5 .splash-seam{animation:none!important}.splash.ph5 .splash-light,.splash.ph5 .splash-seam{opacity:0}}
+
+/* Give the opening panels a real, softly bevelled dark-metal door surface. */
+.splash-half,.splash-half.l,.splash-half.r{
+  background-image:
+    linear-gradient(90deg,transparent 5.7%,rgba(226,235,250,.18) 5.85%,rgba(255,255,255,.035) 6.05%,transparent 6.25%,transparent 43.7%,rgba(0,0,0,.55) 43.85%,rgba(224,234,250,.16) 44.05%,transparent 44.25%,transparent 55.75%,rgba(224,234,250,.16) 55.95%,rgba(0,0,0,.55) 56.15%,transparent 56.3%,transparent 93.75%,rgba(0,0,0,.55) 93.95%,rgba(224,234,250,.14) 94.15%,transparent 94.35%),
+    linear-gradient(180deg,transparent 9%,rgba(224,234,250,.13) 9.18%,transparent 9.42%,transparent 17%,rgba(0,0,0,.45) 17.18%,rgba(224,234,250,.08) 17.38%,transparent 17.6%,transparent 82.4%,rgba(224,234,250,.08) 82.62%,rgba(0,0,0,.45) 82.82%,transparent 83%,transparent 90.58%,rgba(0,0,0,.5) 90.78%,rgba(224,234,250,.14) 90.98%,transparent 91.2%),
+    repeating-linear-gradient(112deg,rgba(255,255,255,.012) 0 1px,transparent 1px 5px),
+    radial-gradient(ellipse at 50% 42%,rgba(183,199,225,.075),transparent 54%),
+    linear-gradient(155deg,#20242d 0%,#11141b 48%,#191d26 76%,#0b0d12 100%);
+  box-shadow:inset 0 1px rgba(255,255,255,.08),inset 0 -24px 60px rgba(0,0,0,.28);
+}
+.splash-half::before{opacity:.18!important;background:linear-gradient(90deg,rgba(238,244,255,.16),rgba(210,223,245,.025) 18%,transparent 54%);filter:blur(.3px)}
+.splash-half.r::before{background:linear-gradient(270deg,rgba(238,244,255,.16),rgba(210,223,245,.025) 18%,transparent 54%)}
+.splash-half::after{width:2px;opacity:.42!important;background:linear-gradient(180deg,transparent,rgba(191,210,240,.22) 12%,rgba(233,240,251,.62) 35%,rgba(248,237,215,.9) 50%,rgba(233,240,251,.62) 65%,rgba(191,210,240,.22) 88%,transparent);box-shadow:0 0 9px rgba(197,215,244,.24),0 0 28px rgba(181,202,237,.12),0 0 54px rgba(181,202,237,.06)}
+.splash.ph2 .splash-half::after{opacity:.68!important;box-shadow:0 0 12px rgba(205,221,247,.36),0 0 36px rgba(190,210,242,.18),0 0 76px rgba(190,210,242,.09)}
+.splash.ph5 .splash-half::after{opacity:.12!important}
