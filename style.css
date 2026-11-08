@@ -849,3 +849,14 @@ body{background-color:var(--bg);background-image:radial-gradient(ellipse 80% 30%
 
 .splash-half,.splash-half.l,.splash-half.r{background:#100b08 url("door-texture.svg") center/100% 100% no-repeat;box-shadow:inset 0 0 36px rgba(0,0,0,.42),0 18px 56px rgba(0,0,0,.48)}
 .splash.ph5 .splash-half.l,.splash.ph5 .splash-half.r{filter:brightness(.68) saturate(.82)}
+.splash{perspective:1050px;perspective-origin:50% 48%}
+.splash-half,.splash-half.l,.splash-half.r{box-shadow:inset 0 0 55px rgba(0,0,0,.62),0 28px 90px rgba(0,0,0,.62);transition:transform 1.15s cubic-bezier(.2,.78,.2,1),filter 1s ease,opacity 1s ease}
+.splash-half.l{transform:rotateY(1.5deg)}.splash-half.r{transform:rotateY(-1.5deg)}
+.splash.ph2 .splash-half.l{transform:rotateY(2deg)}.splash.ph2 .splash-half.r{transform:rotateY(-2deg)}
+.splash-half::after{width:14px!important;background:linear-gradient(90deg,#030303,rgba(22,17,12,.96) 24%,rgba(103,72,41,.72) 43%,rgba(201,139,68,.68) 50%,rgba(80,54,32,.84) 62%,#030303)!important;box-shadow:0 0 18px rgba(151,91,39,.3),0 0 48px rgba(124,70,26,.14),inset 0 0 5px rgba(0,0,0,.72)!important}
+.splash.ph2 .splash-half::after{opacity:.78!important;box-shadow:0 0 24px rgba(184,113,50,.36),0 0 70px rgba(147,79,29,.2)!important}
+.splash.ph5 .splash-half.l{transform:rotateY(-82deg) translateZ(18px);opacity:.76;filter:brightness(.48) saturate(.72)}
+.splash.ph5 .splash-half.r{transform:rotateY(82deg) translateZ(18px);opacity:.76;filter:brightness(.48) saturate(.72)}
+.splash.ph5 .splash-half::after{opacity:.08!important}
+.splash-seam{background:linear-gradient(180deg,transparent,rgba(123,78,39,.5) 20%,rgba(207,139,67,.82) 50%,rgba(123,78,39,.5) 80%,transparent);box-shadow:0 0 18px rgba(154,89,34,.24),0 0 55px rgba(137,74,28,.1)}
+.splash-light{background:radial-gradient(ellipse at center,rgba(192,126,58,.13),rgba(127,76,35,.055) 30%,transparent 68%)}
